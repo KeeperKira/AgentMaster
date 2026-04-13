@@ -42,6 +42,12 @@ static int g_nextNodeId = 1;
 // Отслеживание узлов, чья позиция уже установлена в ImNodes
 static std::set<int> g_nodesPositionSet;
 
+// Режим размещения нового узла (клик по каталогу → ожидание клика на canvas)
+static bool g_placingNode = false;
+static NodeType g_pendingNodeType = NodeType::Input;
+static int g_placingNodeFrame = 0;
+static int g_currentFrame = 0;
+
 // DirectX 11
 static ID3D11Device*            g_pd3dDevice = nullptr;
 static ID3D11DeviceContext*     g_pd3dDeviceContext = nullptr;
@@ -136,6 +142,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			ImGui_ImplDX11_NewFrame();
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
+			g_currentFrame++;
+
+			// ESC — отмена размещения
+			if (g_placingNode && ImGui::IsKeyPressed(ImGuiKey_Escape))
+			{
+				g_placingNode = false;
+			}
 
 			// Главное окно на весь экран
 			ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -175,13 +188,37 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 			// Левая панель — каталог
 			ImGui::BeginChild("Catalog", ImVec2(catalogWidth, 0.0f), true);
-			ImGui::Text("Tools");
+
+			if (g_placingNode)
+			{
+				ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Click on canvas to place");
+				if (ImGui::Button("Cancel"))
+				{
+					g_placingNode = false;
+				}
+				ImGui::Separator();
+			}
+			else
+			{
+				ImGui::Text("Tools");
+			}
 			ImGui::Separator();
-			ImGui::Selectable("Input", false);
-			ImGui::Selectable("Output", false);
-			ImGui::Selectable("Text", false);
-			ImGui::Selectable("Triplet", false);
-			ImGui::Selectable("Router", false);
+
+			// Элементы каталога (Input/Output всегда на canvas — не показываем)
+			const char* toolNames[] = { "Text", "Triplet", "Router" };
+			NodeType toolTypes[] = { NodeType::Text, NodeType::Triplet, NodeType::Router };
+
+			for (int i = 0; i < 3; i++)
+			{
+				if (ImGui::Selectable(toolNames[i], false))
+				{
+					// Клик — войти в режим размещения (начиная со следующего кадра)
+					g_placingNode = true;
+					g_pendingNodeType = toolTypes[i];
+					g_placingNodeFrame = g_currentFrame + 1;
+				}
+			}
+
 			ImGui::EndChild();
 
 			// Разделитель
@@ -189,6 +226,61 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 			// Правая панель — canvas
 			ImGui::BeginChild("Canvas", ImVec2(canvasWidth, 0.0f), true);
+
+			// Если в режиме размещения — проверить клик по canvas
+			// (только со следующего кадра после активации — защита от мгновенного срабатывания)
+			if (g_placingNode && g_currentFrame > g_placingNodeFrame)
+			{
+				// Проверяем, не навели ли на узел
+				int hoveredNodeId = -1;
+				ImNodes::IsNodeHovered(&hoveredNodeId);
+
+				// Правый клик или ESC — отмена
+				if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+				{
+					g_placingNode = false;
+				}
+
+				// Клик по пустому месту на canvas — создать узел
+				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && hoveredNodeId == -1)
+				{
+					ImVec2 mousePos = ImGui::GetMousePos();
+					ImVec2 canvasStart = ImGui::GetCursorScreenPos();
+					float nodeX = mousePos.x - canvasStart.x;
+					float nodeY = mousePos.y - canvasStart.y;
+
+					Node* newNode = nullptr;
+					switch (g_pendingNodeType)
+					{
+					case NodeType::Text:
+						newNode = new TextNode(g_nextNodeId++);
+						break;
+					case NodeType::Triplet:
+						newNode = new TripletNode(g_nextNodeId++);
+						break;
+					case NodeType::Router:
+						newNode = new RouterNode(g_nextNodeId++);
+						break;
+					default:
+						break;
+					}
+
+					if (newNode != nullptr)
+					{
+						newNode->SetPos(nodeX, nodeY);
+						g_nodes.push_back(newNode);
+						g_placingNode = false;
+					}
+				}
+
+				// Визуальная подсказка — текст рядом с курсором
+				ImGui::SetNextWindowBgAlpha(0.8f);
+				ImGui::BeginTooltip();
+				ImGui::Text("Place %s node", g_pendingNodeType == NodeType::Text ? "Text" :
+					g_pendingNodeType == NodeType::Triplet ? "Triplet" : "Router");
+				ImGui::EndTooltip();
+			}
+
 			ImNodes::BeginNodeEditor();
 
 			// Отрисовка всех узлов
