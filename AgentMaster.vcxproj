@@ -141,6 +141,7 @@
     <ClInclude Include="external\imnodes\imnodes.h" />
     <ClInclude Include="external\imnodes\imnodes_internal.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Model\AgentModel.hpp" />
     <ClInclude Include="Model\Node.hpp" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
@@ -150,6 +151,7 @@
     <ClCompile Include="external\imgui_backends\imgui_impl_dx11.cpp" />
     <ClCompile Include="external\imgui_backends\imgui_impl_win32.cpp" />
     <ClCompile Include="external\imnodes\imnodes.cpp" />
+    <ClCompile Include="Model\AgentModel.cpp" />
     <ClCompile Include="Model\Node.cpp" />
   </ItemGroup>
   <ItemGroup>
