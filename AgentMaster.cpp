@@ -4,6 +4,9 @@
 #include "framework.h"
 #include "AgentMaster.h"
 
+// Model
+#include "Node.hpp"
+
 // ImGui
 #include <imgui.h>
 #include <imgui_impl_win32.h>
@@ -19,6 +22,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include <d3d11.h>
 #include <dxgi.h>
 #include <stdio.h>
+#include <vector>
+#include <set>
 
 #define MAX_LOADSTRING 100
 
@@ -27,6 +32,15 @@ HINSTANCE hInst;                                // текущий экземпл
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
 HWND    g_hWnd = nullptr;                       // дескриптор главного окна
+
+// Модель: узлы и связи
+static std::vector<Node*> g_nodes;
+
+// Следующий ID для новых узлов
+static int g_nextNodeId = 1;
+
+// Отслеживание узлов, чья позиция уже установлена в ImNodes
+static std::set<int> g_nodesPositionSet;
 
 // DirectX 11
 static ID3D11Device*            g_pd3dDevice = nullptr;
@@ -87,6 +101,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// Инициализировать платформы ImGui
 	ImGui_ImplWin32_Init(g_hWnd);
 	ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
+	// Создать фиксированные узлы Input и Output
+	InputNode* inputNode = new InputNode(g_nextNodeId++);
+	inputNode->SetPos(100.0f, 300.0f);
+	g_nodes.push_back(inputNode);
+
+	OutputNode* outputNode = new OutputNode(g_nextNodeId++);
+	outputNode->SetPos(600.0f, 300.0f);
+	g_nodes.push_back(outputNode);
 
 	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_AGENTMASTER));
 
@@ -167,14 +190,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			// Правая панель — canvas
 			ImGui::BeginChild("Canvas", ImVec2(canvasWidth, 0.0f), true);
 			ImNodes::BeginNodeEditor();
-			ImNodes::BeginNode(1);
-			ImNodes::BeginNodeTitleBar();
-			ImGui::TextUnformatted("Input");
-			ImNodes::EndNodeTitleBar();
-			ImNodes::BeginOutputAttribute(1);
-			ImGui::Text("  Out  ");
-			ImNodes::EndOutputAttribute();
-			ImNodes::EndNode();
+
+			// Отрисовка всех узлов
+			for (Node* node : g_nodes)
+			{
+				// При первом рендере — установить начальную позицию
+				if (g_nodesPositionSet.find(node->GetId()) == g_nodesPositionSet.end())
+				{
+					ImNodes::SetNodeGridSpacePos(node->GetId(), ImVec2(node->GetX(), node->GetY()));
+					g_nodesPositionSet.insert(node->GetId());
+				}
+
+				ImNodes::BeginNode(node->GetId());
+				ImNodes::BeginNodeTitleBar();
+				ImGui::TextUnformatted(node->GetTypeName());
+				ImNodes::EndNodeTitleBar();
+
+				// Входы
+				for (int i = 0; i < node->GetInputCount(); i++)
+				{
+					ImNodes::BeginInputAttribute(node->GetId() * 1000 + i);
+					ImGui::Text("In %d", i);
+					ImNodes::EndInputAttribute();
+				}
+
+				// Выходы
+				for (int i = 0; i < node->GetOutputCount(); i++)
+				{
+					ImNodes::BeginOutputAttribute(node->GetId() * 1000 + i + 100);
+					ImGui::Text("Out %d", i);
+					ImNodes::EndOutputAttribute();
+				}
+
+				ImNodes::EndNode();
+
+				// Синхронизировать позицию из ImNodes в модель
+				ImVec2 gridPos = ImNodes::GetNodeGridSpacePos(node->GetId());
+				node->SetPos(gridPos.x, gridPos.y);
+			}
+
 			ImNodes::EndNodeEditor();
 			ImGui::EndChild();
 
@@ -203,6 +257,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ImGui::DestroyContext();
 
 	CleanupDeviceD3D();
+
+	// Очистка узлов
+	for (Node* node : g_nodes)
+	{
+		delete node;
+	}
+	g_nodes.clear();
 
 	return (int)msg.wParam;
 }
