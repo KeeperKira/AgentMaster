@@ -1,0 +1,24 @@
+# Build outputs
+x64/
+AgentMaster/
+*.exe
+*.pdb
+*.ilk
+*.lib
+*.obj
+*.pch
+*.tlog
+*.lastbuildstate
+*.res
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.slnx.user
+
+# Backup (не нужно в git)
+backup/
+
+# External dependencies (можно переклонировать)
+external/
