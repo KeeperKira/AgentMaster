@@ -45,9 +45,6 @@ static NodeType g_pendingNodeType = NodeType::Input;
 static int g_placingNodeFrame = 0;
 static int g_currentFrame = 0;
 
-// Флаг: нужно пересоздать связи ImNodes в следующем кадре
-static bool g_linksDirty = true;
-
 // Вспомогательная: получить ImNodes ID атрибута для порта
 static inline int InputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex; }
 static inline int OutputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex + 100; }
@@ -224,7 +221,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 							if (g_model.LoadFromFile(szFile))
 							{
 								g_nodesPositionSet.clear();
-								g_linksDirty = true;
 								MessageBoxA(g_hWnd, "Loaded successfully.", "Info", MB_OK);
 							}
 							else
@@ -318,7 +314,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					if (newNode != nullptr)
 					{
 						newNode->SetPos(nodeX, nodeY);
-						g_linksDirty = true;
 						g_placingNode = false;
 					}
 				}
@@ -360,7 +355,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					if (ImGui::SmallButton("X"))
 					{
 						g_model.DeleteNode(node->GetId());
-						g_linksDirty = true;
 						ImNodes::EndNode();
 						continue;
 					}
@@ -453,7 +447,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// Входы
 				for (int i = 0; i < node->GetInputCount(); i++)
 				{
-					ImNodes::BeginInputAttribute(InputAttrId(node->GetId(), i));
+					ImNodes::BeginInputAttribute(InputAttrId(node->GetId(), i), ImNodesPinShape_CircleFilled);
 					ImGui::Text("In %d", i);
 					ImNodes::EndInputAttribute();
 				}
@@ -461,7 +455,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// Выходы
 				for (int i = 0; i < node->GetOutputCount(); i++)
 				{
-					ImNodes::BeginOutputAttribute(OutputAttrId(node->GetId(), i));
+					ImNodes::BeginOutputAttribute(OutputAttrId(node->GetId(), i), ImNodesPinShape_CircleFilled);
 					ImGui::Text("Out %d", i);
 					ImNodes::EndOutputAttribute();
 				}
@@ -473,8 +467,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				node->SetPos(gridPos.x, gridPos.y);
 			}
 
-			// Отрисовка связей (перерисовка только при изменении)
-			if (g_linksDirty)
+			// Отрисовка связей (каждый кадр)
 			{
 				const auto& connections = g_model.GetConnections();
 				for (int i = 0; i < (int)connections.size(); i++)
@@ -484,44 +477,46 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					int endAttr = InputAttrId(conn.to_node_id, conn.to_port_index);
 					ImNodes::Link(i, startAttr, endAttr);
 				}
-				g_linksDirty = false;
 			}
 
-			// Проверить новые связи, созданные пользователем в ImNodes
+			ImNodes::EndNodeEditor();
+
+			// Проверить новые связи — ПОСЛЕ EndNodeEditor
 			{
 				int startAttr = -1, endAttr = -1;
 				if (ImNodes::IsLinkCreated(&startAttr, &endAttr))
 				{
-					// Распаковать ID атрибутов обратно в node_id и port_index
-					int fromNodeId = startAttr / 1000;
-					int fromPortIndex = startAttr % 1000 - 100; // выход: +100
-					int toNodeId = endAttr / 1000;
-					int toPortIndex = endAttr % 1000; // вход: без смещения
+					// Определяем направление: Output -> Input
+					// Выход: остаток от /1000 >= 100, Вход: < 100
+					auto isOutputAttr = [](int attrId) { return (attrId % 1000) >= 100; };
+					auto getInputPort = [](int attrId) { return attrId % 1000; };
+					auto getOutputPort = [](int attrId) { return (attrId % 1000) - 100; };
+					auto getNodeId = [](int attrId) { return attrId / 1000; };
 
-					// Проверить что порт выхода корректен (>= 0)
-					if (fromPortIndex < 0)
-					{
-						// Возможно соединение создано в обратном порядке (вход -> выход)
-						// Поменяем местами
-						int tmp = fromNodeId; fromNodeId = toNodeId; toNodeId = tmp;
-						tmp = fromPortIndex; fromPortIndex = toPortIndex; toPortIndex = tmp + 100;
-						toPortIndex = toPortIndex % 1000;
-						fromPortIndex = fromPortIndex - 100;
-					}
+					bool startIsOutput = isOutputAttr(startAttr);
+					bool endIsOutput = isOutputAttr(endAttr);
 
-					if (fromPortIndex >= 0)
+					if (startIsOutput && !endIsOutput)
 					{
 						Connection conn;
-						conn.from_node_id = fromNodeId;
-						conn.from_port_index = fromPortIndex;
-						conn.to_node_id = toNodeId;
-						conn.to_port_index = toPortIndex;
+						conn.from_node_id = getNodeId(startAttr);
+						conn.from_port_index = getOutputPort(startAttr);
+						conn.to_node_id = getNodeId(endAttr);
+						conn.to_port_index = getInputPort(endAttr);
+						g_model.AddConnection(conn);
+					}
+					else if (!startIsOutput && endIsOutput)
+					{
+						Connection conn;
+						conn.from_node_id = getNodeId(endAttr);
+						conn.from_port_index = getOutputPort(endAttr);
+						conn.to_node_id = getNodeId(startAttr);
+						conn.to_port_index = getInputPort(startAttr);
 						g_model.AddConnection(conn);
 					}
 				}
 			}
 
-			ImNodes::EndNodeEditor();
 			ImGui::EndChild();
 
 			ImGui::End(); // Main
