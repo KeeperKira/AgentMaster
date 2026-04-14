@@ -117,6 +117,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ImGui::StyleColorsDark();
 	ImNodes::StyleColorsDark();
 
+	// Загрузить шрифт с поддержкой кириллицы
+	ImFontConfig fontConfig;
+	fontConfig.GlyphRanges = io.Fonts->GetGlyphRangesCyrillic();
+	io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\arial.ttf", 16.0f, &fontConfig);
+
 	// Инициализировать платформы ImGui
 	ImGui_ImplWin32_Init(g_hWnd);
 	ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
@@ -410,14 +415,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					ImGui::PopID();
 				}
 
-				// RouterNode: поля url и api_key
+				// RouterNode: поля model, url и api_key
 				if (node->GetType() == NodeType::Router)
 				{
 					ImGui::PushID(node->GetId());
+
+					char modelBuf[256];
+					strncpy_s(modelBuf, node->GetField("model").c_str(), sizeof(modelBuf) - 1);
+					modelBuf[sizeof(modelBuf) - 1] = '\0';
+					ImGui::PushItemWidth(180.0f);
+					if (ImGui::InputText("Model", modelBuf, sizeof(modelBuf)))
+					{
+						node->SetField("model", modelBuf);
+					}
+					if (ImGui::IsItemDeactivatedAfterEdit())
+					{
+						node->SetField("model", modelBuf);
+					}
+
 					char urlBuf[256];
 					strncpy_s(urlBuf, node->GetField("url").c_str(), sizeof(urlBuf) - 1);
 					urlBuf[sizeof(urlBuf) - 1] = '\0';
-					ImGui::PushItemWidth(180.0f);
 					if (ImGui::InputText("URL", urlBuf, sizeof(urlBuf)))
 					{
 						node->SetField("url", urlBuf);

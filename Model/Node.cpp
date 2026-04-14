@@ -70,6 +70,8 @@ bool Node::IsFixed() const
 InputNode::InputNode(int id)
 	: Node(id, true)
 {
+	std::string name = "Input #" + std::to_string(id);
+	SetField("name", name);
 }
 
 int InputNode::GetInputCount() const
@@ -99,6 +101,8 @@ const char* InputNode::GetTypeName() const
 OutputNode::OutputNode(int id)
 	: Node(id, true)
 {
+	std::string name = "Output #" + std::to_string(id);
+	SetField("name", name);
 }
 
 int OutputNode::GetInputCount() const
@@ -128,7 +132,8 @@ const char* OutputNode::GetTypeName() const
 TextNode::TextNode(int id)
 	: Node(id, false)
 {
-	SetField("name", "");
+	std::string name = "Text #" + std::to_string(id);
+	SetField("name", name);
 	SetField("text", "");
 }
 
@@ -159,7 +164,8 @@ const char* TextNode::GetTypeName() const
 TripletNode::TripletNode(int id)
 	: Node(id, false)
 {
-	SetField("name", "");
+	std::string name = "Triplet #" + std::to_string(id);
+	SetField("name", name);
 }
 
 int TripletNode::GetInputCount() const
@@ -189,7 +195,9 @@ const char* TripletNode::GetTypeName() const
 RouterNode::RouterNode(int id)
 	: Node(id, false)
 {
-	SetField("name", "");
+	std::string name = "Router #" + std::to_string(id);
+	SetField("name", name);
+	SetField("model", "");
 	SetField("url", "");
 	SetField("api_key", "");
 }
@@ -221,7 +229,8 @@ const char* RouterNode::GetTypeName() const
 ConcatNode::ConcatNode(int id)
 	: Node(id, false)
 {
-	SetField("name", "");
+	std::string name = "Concat #" + std::to_string(id);
+	SetField("name", name);
 	SetField("wait", "false");
 }
 

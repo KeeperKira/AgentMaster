@@ -45,14 +45,18 @@
   ],
   "nodes": [
     {
-      "fields": null,
+      "fields": {
+        "name": ""
+      },
       "id": 1,
       "type": "input",
       "x": 94.0,
       "y": 250.0
     },
     {
-      "fields": null,
+      "fields": {
+        "name": ""
+      },
       "id": 2,
       "type": "output",
       "x": 924.0,
@@ -80,7 +84,7 @@
     {
       "fields": {
         "name": "",
-        "text": ""
+        "text": "Проверка, текста в примере.\n"
       },
       "id": 6,
       "type": "text",

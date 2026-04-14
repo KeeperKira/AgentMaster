@@ -1,0 +1,79 @@
+{
+  "connections": [
+    {
+      "from_node": 3,
+      "from_port": 0,
+      "id": 4,
+      "to_node": 2,
+      "to_port": 0
+    },
+    {
+      "from_node": 1,
+      "from_port": 0,
+      "id": 5,
+      "to_node": 3,
+      "to_port": 0
+    },
+    {
+      "from_node": 1,
+      "from_port": 0,
+      "id": 7,
+      "to_node": 6,
+      "to_port": 2
+    },
+    {
+      "from_node": 6,
+      "from_port": 0,
+      "id": 8,
+      "to_node": 2,
+      "to_port": 0
+    },
+    {
+      "from_node": 2,
+      "from_port": 0,
+      "id": 9,
+      "to_node": 6,
+      "to_port": 0
+    }
+  ],
+  "nodes": [
+    {
+      "fields": {
+        "name": "Input #1"
+      },
+      "id": 1,
+      "type": "input",
+      "x": 100.0,
+      "y": 300.0
+    },
+    {
+      "fields": {
+        "name": "Output #2"
+      },
+      "id": 2,
+      "type": "output",
+      "x": 825.0,
+      "y": 273.0
+    },
+    {
+      "fields": {
+        "api_key": "",
+        "name": "Router #3",
+        "url": ""
+      },
+      "id": 3,
+      "type": "router",
+      "x": 410.0,
+      "y": 371.0
+    },
+    {
+      "fields": {
+        "name": "Triplet #6"
+      },
+      "id": 6,
+      "type": "triplet",
+      "x": 476.0,
+      "y": 152.0
+    }
+  ]
+}
