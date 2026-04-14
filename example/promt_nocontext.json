@@ -1,0 +1,58 @@
+{
+  "connections": [
+    {
+      "from_node": 3,
+      "from_port": 0,
+      "to_node": 2,
+      "to_port": 0
+    },
+    {
+      "from_node": 4,
+      "from_port": 0,
+      "to_node": 3,
+      "to_port": 0
+    },
+    {
+      "from_node": 1,
+      "from_port": 0,
+      "to_node": 3,
+      "to_port": 1
+    }
+  ],
+  "nodes": [
+    {
+      "fields": null,
+      "id": 1,
+      "type": "input",
+      "x": 94.0,
+      "y": 325.0
+    },
+    {
+      "fields": null,
+      "id": 2,
+      "type": "output",
+      "x": 638.0,
+      "y": 318.0
+    },
+    {
+      "fields": {
+        "name": "промт+запрос",
+        "wait": "true"
+      },
+      "id": 3,
+      "type": "concat",
+      "x": 311.0,
+      "y": 192.0
+    },
+    {
+      "fields": {
+        "name": "",
+        "text": ""
+      },
+      "id": 4,
+      "type": "text",
+      "x": 72.0,
+      "y": 73.0
+    }
+  ]
+}

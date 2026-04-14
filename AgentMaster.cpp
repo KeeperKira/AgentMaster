@@ -24,6 +24,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include <commdlg.h>
 #include <stdio.h>
 #include <set>
+#include <algorithm>
 
 #define MAX_LOADSTRING 100
 
@@ -265,10 +266,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			ImGui::Separator();
 
 			// Элементы каталога (Input/Output всегда на canvas — не показываем)
-			const char* toolNames[] = { "Text", "Triplet", "Router" };
-			NodeType toolTypes[] = { NodeType::Text, NodeType::Triplet, NodeType::Router };
+			const char* toolNames[] = { "Text", "Triplet", "Router", "Concat" };
+			NodeType toolTypes[] = { NodeType::Text, NodeType::Triplet, NodeType::Router, NodeType::Concat };
 
-			for (int i = 0; i < 3; i++)
+			for (int i = 0; i < 4; i++)
 			{
 				if (ImGui::Selectable(toolNames[i], false))
 				{
@@ -321,8 +322,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// Визуальная подсказка — текст рядом с курсором
 				ImGui::SetNextWindowBgAlpha(0.8f);
 				ImGui::BeginTooltip();
-				ImGui::Text("Place %s node", g_pendingNodeType == NodeType::Text ? "Text" :
-					g_pendingNodeType == NodeType::Triplet ? "Triplet" : "Router");
+				const char* typeName = g_pendingNodeType == NodeType::Text ? "Text" :
+					g_pendingNodeType == NodeType::Triplet ? "Triplet" :
+					g_pendingNodeType == NodeType::Router ? "Router" : "Concat";
+				ImGui::Text("Place %s node", typeName);
 				ImGui::EndTooltip();
 			}
 
@@ -444,6 +447,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					ImGui::PopID();
 				}
 
+				// ConcatNode: чекбокс wait
+				if (node->GetType() == NodeType::Concat)
+				{
+					ImGui::PushID(node->GetId());
+
+					bool wait = (node->GetField("wait") == "true");
+					if (ImGui::Checkbox("Wait", &wait))
+					{
+						node->SetField("wait", wait ? "true" : "false");
+					}
+
+					ImGui::PopID();
+				}
+
 				// Входы
 				for (int i = 0; i < node->GetInputCount(); i++)
 				{
@@ -480,6 +497,26 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			}
 
 			ImNodes::EndNodeEditor();
+
+			// Удаление связей по ПКМ на порту (pin)
+			{
+				int hoveredAttrId = -1;
+				if (ImNodes::IsPinHovered(&hoveredAttrId) && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+				{
+					// Удалить все связи где участвует этот атрибут
+					auto& conns = g_model.GetConnectionsMutable();
+					conns.erase(
+						std::remove_if(conns.begin(), conns.end(),
+							[hoveredAttrId](const Connection& conn)
+							{
+								int startAttr = OutputAttrId(conn.from_node_id, conn.from_port_index);
+								int endAttr = InputAttrId(conn.to_node_id, conn.to_port_index);
+								return startAttr == hoveredAttrId || endAttr == hoveredAttrId;
+							}),
+						conns.end()
+					);
+				}
+			}
 
 			// Проверить новые связи — ПОСЛЕ EndNodeEditor
 			{

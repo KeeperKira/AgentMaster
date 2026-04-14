@@ -44,6 +44,11 @@ const std::vector<Connection>& AgentModel::GetConnections() const
 	return m_connections;
 }
 
+std::vector<Connection>& AgentModel::GetConnectionsMutable()
+{
+	return m_connections;
+}
+
 // ============================================================================
 // Связи
 // ============================================================================
@@ -99,6 +104,9 @@ Node* AgentModel::CreateNode(NodeType type)
 		break;
 	case NodeType::Router:
 		newNode = new RouterNode(NextId());
+		break;
+	case NodeType::Concat:
+		newNode = new ConcatNode(NextId());
 		break;
 	default:
 		return nullptr;
@@ -197,6 +205,9 @@ std::string AgentModel::ToJson() const
 		case NodeType::Router:
 			nodeJson["type"] = "router";
 			break;
+		case NodeType::Concat:
+			nodeJson["type"] = "concat";
+			break;
 		}
 
 		nodeJson["x"] = node->GetX();
@@ -271,6 +282,10 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 				else if (type == "router")
 				{
 					newNode = new RouterNode(id);
+				}
+				else if (type == "concat")
+				{
+					newNode = new ConcatNode(id);
 				}
 				else
 				{

@@ -213,3 +213,34 @@ const char* RouterNode::GetTypeName() const
 {
 	return "Router";
 }
+
+// ============================================================================
+// ConcatNode
+// ============================================================================
+
+ConcatNode::ConcatNode(int id)
+	: Node(id, false)
+{
+	SetField("name", "");
+	SetField("wait", "false");
+}
+
+int ConcatNode::GetInputCount() const
+{
+	return 2;
+}
+
+int ConcatNode::GetOutputCount() const
+{
+	return 1;
+}
+
+NodeType ConcatNode::GetType() const
+{
+	return NodeType::Concat;
+}
+
+const char* ConcatNode::GetTypeName() const
+{
+	return "Concat";
+}

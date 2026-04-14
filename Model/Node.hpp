@@ -13,7 +13,8 @@ enum class NodeType
 	Output,
 	Text,
 	Triplet,
-	Router
+	Router,
+	Concat
 };
 
 // ============================================================================
@@ -128,6 +129,21 @@ class RouterNode : public Node
 {
 public:
 	RouterNode(int id);
+
+	int GetInputCount() const override;
+	int GetOutputCount() const override;
+	NodeType GetType() const override;
+	const char* GetTypeName() const override;
+};
+
+// ============================================================================
+// ConcatNode — объединение двух входов в один выход
+// ============================================================================
+
+class ConcatNode : public Node
+{
+public:
+	ConcatNode(int id);
 
 	int GetInputCount() const override;
 	int GetOutputCount() const override;

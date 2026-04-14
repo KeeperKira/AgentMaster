@@ -40,6 +40,7 @@ public:
 
 	// Связи
 	const std::vector<Connection>& GetConnections() const;
+	std::vector<Connection>& GetConnectionsMutable();
 	void AddConnection(const Connection& conn);
 	void RemoveConnection(int from_node_id, int to_node_id);
 	void RemoveConnectionByIndex(int index);
