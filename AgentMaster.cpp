@@ -193,11 +193,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 						ofn.Flags = OFN_OVERWRITEPROMPT;
 						if (GetSaveFileDialogA(&ofn))
 						{
-							if (g_model.SaveToFile(szFile))
-							{
-								MessageBoxA(g_hWnd, "Saved successfully.", "Info", MB_OK);
-							}
-							else
+							if (!g_model.SaveToFile(szFile))
 							{
 								MessageBoxA(g_hWnd, "Failed to save file.", "Error", MB_ICONERROR);
 							}
@@ -222,7 +218,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 							if (g_model.LoadFromFile(szFile))
 							{
 								g_nodesPositionSet.clear();
-								MessageBoxA(g_hWnd, "Loaded successfully.", "Info", MB_OK);
 							}
 							else
 							{
@@ -487,12 +482,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			// Отрисовка связей (каждый кадр)
 			{
 				const auto& connections = g_model.GetConnections();
-				for (int i = 0; i < (int)connections.size(); i++)
+				for (const auto& conn : connections)
 				{
-					const auto& conn = connections[i];
 					int startAttr = OutputAttrId(conn.from_node_id, conn.from_port_index);
 					int endAttr = InputAttrId(conn.to_node_id, conn.to_port_index);
-					ImNodes::Link(i, startAttr, endAttr);
+					ImNodes::Link(conn.id, startAttr, endAttr);
 				}
 			}
 
@@ -523,7 +517,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				int hoveredLinkId = -1;
 				if (ImNodes::IsLinkHovered(&hoveredLinkId) && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
 				{
-					g_model.RemoveConnectionByIndex(hoveredLinkId);
+					g_model.RemoveConnectionById(hoveredLinkId);
 				}
 			}
 

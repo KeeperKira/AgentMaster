@@ -10,6 +10,7 @@
 
 struct Connection
 {
+	int id;
 	int from_node_id;
 	int from_port_index;
 	int to_node_id;
@@ -43,7 +44,7 @@ public:
 	std::vector<Connection>& GetConnectionsMutable();
 	void AddConnection(const Connection& conn);
 	void RemoveConnection(int from_node_id, int to_node_id);
-	void RemoveConnectionByIndex(int index);
+	void RemoveConnectionById(int conn_id);
 
 	// Создание узлов
 	Node* CreateNode(NodeType type);

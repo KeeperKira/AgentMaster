@@ -63,7 +63,9 @@ void AgentModel::AddConnection(const Connection& conn)
 			return;
 		}
 	}
-	m_connections.push_back(conn);
+	Connection newConn = conn;
+	newConn.id = m_next_id++;
+	m_connections.push_back(newConn);
 }
 
 void AgentModel::RemoveConnection(int from_node_id, int to_node_id)
@@ -78,12 +80,16 @@ void AgentModel::RemoveConnection(int from_node_id, int to_node_id)
 	);
 }
 
-void AgentModel::RemoveConnectionByIndex(int index)
+void AgentModel::RemoveConnectionById(int conn_id)
 {
-	if (index >= 0 && index < (int)m_connections.size())
-	{
-		m_connections.erase(m_connections.begin() + index);
-	}
+	m_connections.erase(
+		std::remove_if(m_connections.begin(), m_connections.end(),
+			[conn_id](const Connection& conn)
+			{
+				return conn.id == conn_id;
+			}),
+		m_connections.end()
+	);
 }
 
 // ============================================================================
@@ -229,6 +235,7 @@ std::string AgentModel::ToJson() const
 	for (const auto& conn : m_connections)
 	{
 		json connJson;
+		connJson["id"] = conn.id;
 		connJson["from_node"] = conn.from_node_id;
 		connJson["from_port"] = conn.from_port_index;
 		connJson["to_node"] = conn.to_node_id;
@@ -265,10 +272,42 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 
 				if (type == "input")
 				{
+					// Найти существующий Input или создать новый
+					Node* existing = GetNodeById(id);
+					if (existing && existing->GetType() == NodeType::Input)
+					{
+						existing->SetPos(x, y);
+						// Восстановить поля
+						if (nodeJson.contains("fields"))
+						{
+							for (const auto& [key, value] : nodeJson["fields"].items())
+							{
+								existing->SetField(key, value.get<std::string>());
+							}
+						}
+						if (id >= m_next_id) m_next_id = id + 1;
+						continue;
+					}
 					newNode = new InputNode(id);
 				}
 				else if (type == "output")
 				{
+					// Найти существующий Output или создать новый
+					Node* existing = GetNodeById(id);
+					if (existing && existing->GetType() == NodeType::Output)
+					{
+						existing->SetPos(x, y);
+						// Восстановить поля
+						if (nodeJson.contains("fields"))
+						{
+							for (const auto& [key, value] : nodeJson["fields"].items())
+							{
+								existing->SetField(key, value.get<std::string>());
+							}
+						}
+						if (id >= m_next_id) m_next_id = id + 1;
+						continue;
+					}
 					newNode = new OutputNode(id);
 				}
 				else if (type == "text")
@@ -318,10 +357,22 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 			for (const auto& connJson : j["connections"])
 			{
 				Connection conn;
+				conn.id = connJson.value("id", -1);
 				conn.from_node_id = connJson.value("from_node", 0);
 				conn.from_port_index = connJson.value("from_port", 0);
 				conn.to_node_id = connJson.value("to_node", 0);
 				conn.to_port_index = connJson.value("to_port", 0);
+
+				// Если ID не сохранён или -1 — назначить новый
+				if (conn.id < 0)
+				{
+					conn.id = m_next_id++;
+				}
+				else if (conn.id >= m_next_id)
+				{
+					m_next_id = conn.id + 1;
+				}
+
 				m_connections.push_back(conn);
 			}
 		}
