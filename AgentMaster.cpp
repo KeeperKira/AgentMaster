@@ -518,6 +518,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				}
 			}
 
+			// Удаление связей по ПКМ на самой линии (link)
+			{
+				int hoveredLinkId = -1;
+				if (ImNodes::IsLinkHovered(&hoveredLinkId) && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+				{
+					g_model.RemoveConnectionByIndex(hoveredLinkId);
+				}
+			}
+
 			// Проверить новые связи — ПОСЛЕ EndNodeEditor
 			{
 				int startAttr = -1, endAttr = -1;
