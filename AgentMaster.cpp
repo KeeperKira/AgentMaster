@@ -46,6 +46,10 @@ static NodeType g_pendingNodeType = NodeType::Input;
 static int g_placingNodeFrame = 0;
 static int g_currentFrame = 0;
 
+// Позиция мыши для размещения нового узла (захватывается в момент клика)
+static float g_pendingMouseX = 0.0f;
+static float g_pendingMouseY = 0.0f;
+
 // Вспомогательная: получить ImNodes ID атрибута для порта
 static inline int InputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex; }
 static inline int OutputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex + 100; }
@@ -306,17 +310,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && hoveredNodeId == -1)
 				{
 					ImVec2 mousePos = ImGui::GetMousePos();
-					ImVec2 canvasStart = ImGui::GetCursorScreenPos();
-					float nodeScreenX = mousePos.x - canvasStart.x;
-					float nodeScreenY = mousePos.y - canvasStart.y;
+					g_pendingMouseX = mousePos.x;
+					g_pendingMouseY = mousePos.y;
 
 					Node* newNode = g_model.CreateNode(g_pendingNodeType);
 
 					if (newNode != nullptr)
 					{
-						// Устанавливаем позицию сразу через SetNodeScreenSpacePos
-						// так как мышь даёт экранные координаты
-						newNode->SetPos(nodeScreenX, nodeScreenY);
 						g_placingNode = false;
 					}
 				}
@@ -333,6 +333,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 			ImNodes::BeginNodeEditor();
 
+			// Позиция курсора редактора (внутри BeginNodeEditor)
+			ImVec2 editorPos = ImGui::GetCursorScreenPos();
+
 			// Отрисовка всех узлов
 			const auto& nodes = g_model.GetNodes();
 			for (Node* node : nodes)
@@ -340,7 +343,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// При первом рендере — установить начальную позицию
 				if (g_nodesPositionSet.find(node->GetId()) == g_nodesPositionSet.end())
 				{
-					ImNodes::SetNodeScreenSpacePos(node->GetId(), ImVec2(node->GetX(), node->GetY()));
+					// Конвертируем абсолютную позицию мыши в координаты редактора
+					float nodeScreenX = g_pendingMouseX - editorPos.x;
+					float nodeScreenY = g_pendingMouseY - editorPos.y;
+
+					ImNodes::SetNodeScreenSpacePos(node->GetId(), ImVec2(nodeScreenX, nodeScreenY));
 					g_nodesPositionSet.insert(node->GetId());
 				}
 
