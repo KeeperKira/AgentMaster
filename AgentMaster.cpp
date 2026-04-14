@@ -307,14 +307,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				{
 					ImVec2 mousePos = ImGui::GetMousePos();
 					ImVec2 canvasStart = ImGui::GetCursorScreenPos();
-					float nodeX = mousePos.x - canvasStart.x;
-					float nodeY = mousePos.y - canvasStart.y;
+					float nodeScreenX = mousePos.x - canvasStart.x;
+					float nodeScreenY = mousePos.y - canvasStart.y;
 
 					Node* newNode = g_model.CreateNode(g_pendingNodeType);
 
 					if (newNode != nullptr)
 					{
-						newNode->SetPos(nodeX, nodeY);
+						// Устанавливаем позицию сразу через SetNodeScreenSpacePos
+						// так как мышь даёт экранные координаты
+						newNode->SetPos(nodeScreenX, nodeScreenY);
 						g_placingNode = false;
 					}
 				}
@@ -338,7 +340,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// При первом рендере — установить начальную позицию
 				if (g_nodesPositionSet.find(node->GetId()) == g_nodesPositionSet.end())
 				{
-					ImNodes::SetNodeGridSpacePos(node->GetId(), ImVec2(node->GetX(), node->GetY()));
+					ImNodes::SetNodeScreenSpacePos(node->GetId(), ImVec2(node->GetX(), node->GetY()));
 					g_nodesPositionSet.insert(node->GetId());
 				}
 
