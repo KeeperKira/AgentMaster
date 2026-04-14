@@ -3,6 +3,18 @@
 #include <map>
 #include <string>
 
+// Forward declaration (цикл с AgentModel.hpp)
+class AgentModel;
+
+// ImGui
+#include <imgui.h>
+#include <imgui_impl_win32.h>
+#include <imgui_impl_dx11.h>
+
+// ImNodes
+#include <imnodes.h>
+
+
 // ============================================================================
 // Типы узлов
 // ============================================================================
@@ -14,8 +26,14 @@ enum class NodeType
 	Text,
 	Triplet,
 	Router,
-	Concat
+	Concat,
+	Logger,
+	Gate
 };
+
+// Вспомогательные
+static inline int InputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex; }
+static inline int OutputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex + 100; }
 
 // ============================================================================
 // Базовый класс Node
@@ -28,11 +46,13 @@ public:
 
 	// Идентификатор
 	int GetId() const;
-
 	// Позиция на canvas
 	float GetX() const;
 	float GetY() const;
 	void SetPos(float x, float y);
+
+	// Полная отрисовка узла в ImNodes (заголовок, поля, порты)
+	virtual void UIDraw(AgentModel* model);
 
 	// Порты (определяются производными классами)
 	virtual int GetInputCount() const = 0;
@@ -47,12 +67,16 @@ public:
 	void SetField(const std::string& key, const std::string& value);
 	std::string GetField(const std::string& key) const;
 	bool HasField(const std::string& key) const;
-
 	// Фиксированные узлы (Input/Output) — нельзя удалить
 	bool IsFixed() const;
 
 protected:
 	Node(int id, bool fixed);
+
+	// Отрисовка тела узла (переопределяется в потомках)
+	virtual void DrawContent();
+	// Отрисовка кнопки удаления + заголовка + имени
+	void DrawTitleBar();
 
 	int m_id;
 	float m_x;
@@ -74,6 +98,9 @@ public:
 	int GetOutputCount() const override;
 	NodeType GetType() const override;
 	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
 };
 
 // ============================================================================
@@ -89,6 +116,9 @@ public:
 	int GetOutputCount() const override;
 	NodeType GetType() const override;
 	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
 };
 
 // ============================================================================
@@ -104,6 +134,9 @@ public:
 	int GetOutputCount() const override;
 	NodeType GetType() const override;
 	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
 };
 
 // ============================================================================
@@ -119,6 +152,9 @@ public:
 	int GetOutputCount() const override;
 	NodeType GetType() const override;
 	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
 };
 
 // ============================================================================
@@ -134,6 +170,9 @@ public:
 	int GetOutputCount() const override;
 	NodeType GetType() const override;
 	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
 };
 
 // ============================================================================
@@ -149,4 +188,43 @@ public:
 	int GetOutputCount() const override;
 	NodeType GetType() const override;
 	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
+};
+
+// ============================================================================
+// LoggerNode — логирование проходящих данных
+// ============================================================================
+
+class LoggerNode : public Node
+{
+public:
+	LoggerNode(int id);
+
+	int GetInputCount() const override;
+	int GetOutputCount() const override;
+	NodeType GetType() const override;
+	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
+};
+
+// ============================================================================
+// GateNode — шлюз с условием (2 входа: Data / Condition, 1 выход)
+// ============================================================================
+
+class GateNode : public Node
+{
+public:
+	GateNode(int id);
+
+	int GetInputCount() const override;
+	int GetOutputCount() const override;
+	NodeType GetType() const override;
+	const char* GetTypeName() const override;
+
+protected:
+	void DrawContent() override;
 };

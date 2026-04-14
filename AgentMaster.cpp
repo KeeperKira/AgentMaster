@@ -50,10 +50,6 @@ static int g_currentFrame = 0;
 static float g_pendingMouseX = 0.0f;
 static float g_pendingMouseY = 0.0f;
 
-// Вспомогательная: получить ImNodes ID атрибута для порта
-static inline int InputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex; }
-static inline int OutputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex + 100; }
-
 // Вспомогательные: обёртки над Win32 диалогами
 static BOOL GetSaveFileDialogA(OPENFILENAMEA* ofn)
 {
@@ -252,7 +248,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			float canvasWidth = availableWidth - catalogWidth;
 
 			// Левая панель — каталог
-			ImGui::BeginChild("Catalog", ImVec2(catalogWidth, 0.0f), true);
+			ImGui::BeginChild("Catalog", ImVec2(catalogWidth, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollWithMouse);
 
 			if (g_placingNode)
 			{
@@ -270,10 +266,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			ImGui::Separator();
 
 			// Элементы каталога (Input/Output всегда на canvas — не показываем)
-			const char* toolNames[] = { "Text", "Triplet", "Router", "Concat" };
-			NodeType toolTypes[] = { NodeType::Text, NodeType::Triplet, NodeType::Router, NodeType::Concat };
+			const char* toolNames[] = { "Text", "Triplet", "Router", "Concat", "Logger", "Gate" };
+			NodeType toolTypes[] = { NodeType::Text, NodeType::Triplet, NodeType::Router, NodeType::Concat, NodeType::Logger, NodeType::Gate };
 
-			for (int i = 0; i < 4; i++)
+			for (int i = 0; i < IM_ARRAYSIZE(toolNames); i++)
 			{
 				if (ImGui::Selectable(toolNames[i], false))
 				{
@@ -290,7 +286,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			ImGui::SameLine();
 
 			// Правая панель — canvas
-			ImGui::BeginChild("Canvas", ImVec2(canvasWidth, 0.0f), true);
+			// ImGuiWindowFlags_NoScrollWithMouse — не перехватывать колёсико (дать ImNodes zoom)
+			ImGui::BeginChild("Canvas", ImVec2(canvasWidth, 0.0f), ImGuiChildFlags_Borders, ImGuiWindowFlags_NoScrollWithMouse);
 
 			// Если в режиме размещения — проверить клик по canvas
 			// (только со следующего кадра после активации — защита от мгновенного срабатывания)
@@ -319,14 +316,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					{
 						g_placingNode = false;
 					}
+					ImVec2 editorPos = ImGui::GetCursorPos();
+					float nodeScreenX = g_pendingMouseX - editorPos.x;
+					float nodeScreenY = g_pendingMouseY - editorPos.y;
+
+					ImNodes::SetNodeScreenSpacePos(newNode->GetId(), ImVec2(nodeScreenX, nodeScreenY));
+					g_nodesPositionSet.insert(newNode->GetId());
 				}
 
 				// Визуальная подсказка — текст рядом с курсором
 				ImGui::SetNextWindowBgAlpha(0.8f);
 				ImGui::BeginTooltip();
-				const char* typeName = g_pendingNodeType == NodeType::Text ? "Text" :
-					g_pendingNodeType == NodeType::Triplet ? "Triplet" :
-					g_pendingNodeType == NodeType::Router ? "Router" : "Concat";
+				const char* typeName = "Node";
 				ImGui::Text("Place %s node", typeName);
 				ImGui::EndTooltip();
 			}
@@ -334,172 +335,23 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			ImNodes::BeginNodeEditor();
 
 			// Позиция курсора редактора (внутри BeginNodeEditor)
-			ImVec2 editorPos = ImGui::GetCursorScreenPos();
+			ImVec2 editorPos = ImGui::GetCursorPos();
 
 			// Отрисовка всех узлов
 			const auto& nodes = g_model.GetNodes();
 			for (Node* node : nodes)
 			{
-				// При первом рендере — установить начальную позицию
-				if (g_nodesPositionSet.find(node->GetId()) == g_nodesPositionSet.end())
-				{
-					// Конвертируем абсолютную позицию мыши в координаты редактора
-					float nodeScreenX = g_pendingMouseX - editorPos.x;
-					float nodeScreenY = g_pendingMouseY - editorPos.y;
-
-					ImNodes::SetNodeScreenSpacePos(node->GetId(), ImVec2(nodeScreenX, nodeScreenY));
-					g_nodesPositionSet.insert(node->GetId());
-				}
-
 				ImNodes::BeginNode(node->GetId());
-
-				// Заголовок узла: тип + имя
-				ImNodes::BeginNodeTitleBar();
-
-				// Кнопка удаления (кроме фиксированных узлов)
-				if (!node->IsFixed())
-				{
-					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
-					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.1f, 0.1f, 0.5f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.15f, 0.15f, 0.8f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.2f, 0.2f, 1.0f));
-					ImGui::PushID(node->GetId());
-					if (ImGui::SmallButton("X"))
-					{
-						g_model.DeleteNode(node->GetId());
-						ImNodes::EndNode();
-						continue;
-					}
-					ImGui::PopID();
-					ImGui::PopStyleColor(4);
-					ImGui::SameLine();
-				}
-
-				ImGui::TextUnformatted(node->GetTypeName());
-
-				// Редактируемое поле имени (под заголовком, в строке title)
-				if (node->HasField("name"))
-				{
-					ImGui::SameLine();
-					char nameBuf[256];
-					strncpy_s(nameBuf, node->GetField("name").c_str(), sizeof(nameBuf) - 1);
-					nameBuf[sizeof(nameBuf) - 1] = '\0';
-					ImGui::PushItemWidth(120.0f);
-					ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1, 0));
-					ImGui::PushID(node->GetId());
-					if (ImGui::InputText("##nodename", nameBuf, sizeof(nameBuf), ImGuiInputTextFlags_EnterReturnsTrue))
-					{
-						node->SetField("name", nameBuf);
-					}
-					// Сохранить при потере фокуса
-					if (ImGui::IsItemDeactivatedAfterEdit())
-					{
-						node->SetField("name", nameBuf);
-					}
-					ImGui::PopID();
-					ImGui::PopStyleVar();
-					ImGui::PopItemWidth();
-				}
-
-				ImNodes::EndNodeTitleBar();
-
-				// Тело узла — поля
-				// TextNode: поле text
-				if (node->GetType() == NodeType::Text)
-				{
-					ImGui::PushID(node->GetId());
-					char textBuf[512];
-					strncpy_s(textBuf, node->GetField("text").c_str(), sizeof(textBuf) - 1);
-					textBuf[sizeof(textBuf) - 1] = '\0';
-					ImGui::PushItemWidth(180.0f);
-					if (ImGui::InputTextMultiline("##text", textBuf, sizeof(textBuf), ImVec2(180, 80)))
-					{
-						node->SetField("text", textBuf);
-					}
-					if (ImGui::IsItemDeactivatedAfterEdit())
-					{
-						node->SetField("text", textBuf);
-					}
-					ImGui::PopItemWidth();
-					ImGui::PopID();
-				}
-
-				// RouterNode: поля model, url и api_key
-				if (node->GetType() == NodeType::Router)
-				{
-					ImGui::PushID(node->GetId());
-
-					char modelBuf[256];
-					strncpy_s(modelBuf, node->GetField("model").c_str(), sizeof(modelBuf) - 1);
-					modelBuf[sizeof(modelBuf) - 1] = '\0';
-					ImGui::PushItemWidth(180.0f);
-					if (ImGui::InputText("Model", modelBuf, sizeof(modelBuf)))
-					{
-						node->SetField("model", modelBuf);
-					}
-					if (ImGui::IsItemDeactivatedAfterEdit())
-					{
-						node->SetField("model", modelBuf);
-					}
-
-					char urlBuf[256];
-					strncpy_s(urlBuf, node->GetField("url").c_str(), sizeof(urlBuf) - 1);
-					urlBuf[sizeof(urlBuf) - 1] = '\0';
-					if (ImGui::InputText("URL", urlBuf, sizeof(urlBuf)))
-					{
-						node->SetField("url", urlBuf);
-					}
-					if (ImGui::IsItemDeactivatedAfterEdit())
-					{
-						node->SetField("url", urlBuf);
-					}
-
-					char keyBuf[256];
-					strncpy_s(keyBuf, node->GetField("api_key").c_str(), sizeof(keyBuf) - 1);
-					keyBuf[sizeof(keyBuf) - 1] = '\0';
-					if (ImGui::InputText("API Key", keyBuf, sizeof(keyBuf)))
-					{
-						node->SetField("api_key", keyBuf);
-					}
-					if (ImGui::IsItemDeactivatedAfterEdit())
-					{
-						node->SetField("api_key", keyBuf);
-					}
-					ImGui::PopItemWidth();
-					ImGui::PopID();
-				}
-
-				// ConcatNode: чекбокс wait
-				if (node->GetType() == NodeType::Concat)
-				{
-					ImGui::PushID(node->GetId());
-
-					bool wait = (node->GetField("wait") == "true");
-					if (ImGui::Checkbox("Wait", &wait))
-					{
-						node->SetField("wait", wait ? "true" : "false");
-					}
-
-					ImGui::PopID();
-				}
-
-				// Входы
-				for (int i = 0; i < node->GetInputCount(); i++)
-				{
-					ImNodes::BeginInputAttribute(InputAttrId(node->GetId(), i), ImNodesPinShape_CircleFilled);
-					ImGui::Text("In %d", i);
-					ImNodes::EndInputAttribute();
-				}
-
-				// Выходы
-				for (int i = 0; i < node->GetOutputCount(); i++)
-				{
-					ImNodes::BeginOutputAttribute(OutputAttrId(node->GetId(), i), ImNodesPinShape_CircleFilled);
-					ImGui::Text("Out %d", i);
-					ImNodes::EndOutputAttribute();
-				}
-
+				node->UIDraw(&g_model);
 				ImNodes::EndNode();
+
+				// Проверить запрос на удаление (установлен в DrawTitleBar)
+				if (node->GetField("__delete_requested") == "true")
+				{
+					node->SetField("__delete_requested", "");
+					g_model.DeleteNode(node->GetId());
+					continue;
+				}
 
 				// Синхронизировать позицию из ImNodes в модель
 				ImVec2 gridPos = ImNodes::GetNodeGridSpacePos(node->GetId());

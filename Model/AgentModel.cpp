@@ -114,6 +114,12 @@ Node* AgentModel::CreateNode(NodeType type)
 	case NodeType::Concat:
 		newNode = new ConcatNode(NextId());
 		break;
+	case NodeType::Logger:
+		newNode = new LoggerNode(NextId());
+		break;
+	case NodeType::Gate:
+		newNode = new GateNode(NextId());
+		break;
 	default:
 		return nullptr;
 	}
@@ -214,6 +220,12 @@ std::string AgentModel::ToJson() const
 		case NodeType::Concat:
 			nodeJson["type"] = "concat";
 			break;
+		case NodeType::Logger:
+			nodeJson["type"] = "logger";
+			break;
+		case NodeType::Gate:
+			nodeJson["type"] = "gate";
+			break;
 		}
 
 		nodeJson["x"] = node->GetX();
@@ -277,6 +289,7 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 					if (existing && existing->GetType() == NodeType::Input)
 					{
 						existing->SetPos(x, y);
+						ImNodes::SetNodeScreenSpacePos(existing->GetId(), ImVec2(x, y));
 						// Восстановить поля
 						if (nodeJson.contains("fields"))
 						{
@@ -297,6 +310,7 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 					if (existing && existing->GetType() == NodeType::Output)
 					{
 						existing->SetPos(x, y);
+						ImNodes::SetNodeScreenSpacePos(existing->GetId(), ImVec2(x, y));
 						// Восстановить поля
 						if (nodeJson.contains("fields"))
 						{
@@ -326,12 +340,21 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 				{
 					newNode = new ConcatNode(id);
 				}
+				else if (type == "logger")
+				{
+					newNode = new LoggerNode(id);
+				}
+				else if (type == "gate")
+				{
+					newNode = new GateNode(id);
+				}
 				else
 				{
 					continue; // Неизвестный тип — пропустить
 				}
 
 				newNode->SetPos(x, y);
+				ImNodes::SetNodeScreenSpacePos(newNode->GetId(), ImVec2(x, y));
 
 				// Восстановить поля
 				if (nodeJson.contains("fields"))
@@ -433,10 +456,12 @@ void AgentModel::InitDefaults()
 	// Создать Input и Output
 	InputNode* inputNode = new InputNode(NextId());
 	inputNode->SetPos(100.0f, 300.0f);
+	ImNodes::SetNodeScreenSpacePos(inputNode->GetId(), ImVec2(100.0f, 300.0f));
 	m_nodes.push_back(inputNode);
 
 	OutputNode* outputNode = new OutputNode(NextId());
 	outputNode->SetPos(600.0f, 300.0f);
+	ImNodes::SetNodeScreenSpacePos(outputNode->GetId(), ImVec2(600.0f, 300.0f));
 	m_nodes.push_back(outputNode);
 }
 
