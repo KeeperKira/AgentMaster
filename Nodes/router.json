@@ -1,0 +1,19 @@
+{
+  "type": "router",
+  "name": "Router",
+  "fixed": false,
+  "ports": {
+    "input": 1,
+    "output": 1
+  },
+  "fields": {
+    "name": "Router",
+    "model": "",
+    "url": "",
+    "api_key": ""
+  },
+  "ui": {
+    "text_inputs": ["model", "url", "api_key"],
+    "input_width": 180
+  }
+}

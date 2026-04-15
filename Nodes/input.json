@@ -1,0 +1,12 @@
+{
+  "type": "input",
+  "name": "Input",
+  "fixed": true,
+  "ports": {
+    "input": 0,
+    "output": 1
+  },
+  "fields": {
+    "name": "Input"
+  }
+}

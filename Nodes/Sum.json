@@ -1,0 +1,16 @@
+{
+  "type": "Summa",
+  "name": "Summa",
+  "fixed": false,
+  "ports": {
+    "input": 2,
+    "output": 1
+  },
+  "fields": {
+    "name": "Summa",
+    "condition": ""
+  },
+  "ui": {
+    "text_inputs": [ "condition" ]
+  }
+}

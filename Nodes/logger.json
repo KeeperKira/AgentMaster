@@ -1,0 +1,17 @@
+{
+  "type": "logger",
+  "name": "Logger",
+  "fixed": false,
+  "ports": {
+    "input": 1,
+    "output": 1
+  },
+  "fields": {
+    "name": "Logger",
+    "filename": "agent.log"
+  },
+  "ui": {
+    "text_inputs": ["filename"],
+    "input_width": 180
+  }
+}

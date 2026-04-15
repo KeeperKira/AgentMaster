@@ -1,0 +1,17 @@
+{
+  "type": "text",
+  "name": "Text",
+  "fixed": false,
+  "ports": {
+    "input": 0,
+    "output": 1
+  },
+  "fields": {
+    "name": "Text",
+    "text": ""
+  },
+  "ui": {
+    "text_multiline": true,
+    "text_size": [180, 80]
+  }
+}

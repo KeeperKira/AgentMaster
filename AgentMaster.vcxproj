@@ -143,6 +143,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="Model\AgentModel.hpp" />
     <ClInclude Include="Model\Node.hpp" />
+    <ClInclude Include="Model\NodeFactory.hpp" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -153,6 +154,7 @@
     <ClCompile Include="external\imnodes\imnodes.cpp" />
     <ClCompile Include="Model\AgentModel.cpp" />
     <ClCompile Include="Model\Node.cpp" />
+    <ClCompile Include="Model\NodeFactory.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="AgentMaster.rc" />

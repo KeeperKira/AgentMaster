@@ -6,6 +6,7 @@
 
 // Model
 #include "AgentModel.hpp"
+#include "NodeFactory.hpp"
 
 // ImGui
 #include <imgui.h>
@@ -25,6 +26,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include <stdio.h>
 #include <set>
 #include <algorithm>
+#include <filesystem>
 
 #define MAX_LOADSTRING 100
 
@@ -40,9 +42,12 @@ static AgentModel g_model;
 // Отслеживание узлов, чья позиция уже установлена в ImNodes
 static std::set<int> g_nodesPositionSet;
 
+// Флаг: нужно применить позиции из модели (после загрузки файла)
+static bool g_applyNodePositions = false;
+
 // Режим размещения нового узла (клик по каталогу → ожидание клика на canvas)
 static bool g_placingNode = false;
-static NodeType g_pendingNodeType = NodeType::Input;
+static std::string g_pendingNodeTypeName; // строковое имя типа (например "text", "router", "summ"...)
 static int g_placingNodeFrame = 0;
 static int g_currentFrame = 0;
 
@@ -125,6 +130,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// Инициализировать платформы ImGui
 	ImGui_ImplWin32_Init(g_hWnd);
 	ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+
+	// Инициализировать NodeFactory (загрузить шаблоны из Nodes/)
+	{
+		std::string exePath = std::filesystem::current_path().string();
+		std::string nodesDir = exePath + "\\Nodes";
+		// Для отладки: также проверить путь относительно исходников
+		if (!std::filesystem::exists(nodesDir))
+		{
+			nodesDir = exePath + "\\..\\Nodes";
+		}
+		if (!NodeFactory::Initialize(nodesDir))
+		{
+			MessageBoxA(nullptr, "Failed to load node templates from Nodes/ directory.\nCheck that Nodes/ folder exists and contains valid JSON files.", "Error", MB_ICONERROR);
+			return FALSE;
+		}
+	}
 
 	// Инициализировать модель (создаёт Input + Output)
 	g_model.InitDefaults();
@@ -223,6 +244,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 							if (g_model.LoadFromFile(szFile))
 							{
 								g_nodesPositionSet.clear();
+								g_applyNodePositions = true; // применить позиции в следующем кадре
 							}
 							else
 							{
@@ -265,17 +287,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			}
 			ImGui::Separator();
 
-			// Элементы каталога (Input/Output всегда на canvas — не показываем)
-			const char* toolNames[] = { "Text", "Triplet", "Router", "Concat", "Logger", "Gate" };
-			NodeType toolTypes[] = { NodeType::Text, NodeType::Triplet, NodeType::Router, NodeType::Concat, NodeType::Logger, NodeType::Gate };
-
-			for (int i = 0; i < IM_ARRAYSIZE(toolNames); i++)
+			// Элементы каталога — динамический список из NodeFactory
+			// (исключаем fixed типы: Input/Output)
+			auto allTypes = NodeFactory::GetAllTemplateNames();
+			for (const auto& typeName : allTypes)
 			{
-				if (ImGui::Selectable(toolNames[i], false))
+				// Пропускаем fixed типы (Input/Output всегда на canvas)
+				if (NodeFactory::IsTemplateFixed(typeName))
 				{
-					// Клик — войти в режим размещения (начиная со следующего кадра)
+					continue;
+				}
+
+				std::string displayName = NodeFactory::GetDisplayNameByTypeName(typeName);
+				if (ImGui::Selectable(displayName.c_str(), false))
+				{
 					g_placingNode = true;
-					g_pendingNodeType = toolTypes[i];
+					g_pendingNodeTypeName = typeName;
 					g_placingNodeFrame = g_currentFrame + 1;
 				}
 			}
@@ -310,7 +337,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					g_pendingMouseX = mousePos.x;
 					g_pendingMouseY = mousePos.y;
 
-					Node* newNode = g_model.CreateNode(g_pendingNodeType);
+					Node* newNode = g_model.CreateNode(g_pendingNodeTypeName);
 
 					if (newNode != nullptr)
 					{
@@ -327,15 +354,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// Визуальная подсказка — текст рядом с курсором
 				ImGui::SetNextWindowBgAlpha(0.8f);
 				ImGui::BeginTooltip();
-				const char* typeName = "Node";
+				const char* typeName = NodeFactory::GetDisplayNameByTypeName(g_pendingNodeTypeName).c_str();
 				ImGui::Text("Place %s node", typeName);
 				ImGui::EndTooltip();
 			}
 
 			ImNodes::BeginNodeEditor();
-
-			// Позиция курсора редактора (внутри BeginNodeEditor)
-			ImVec2 editorPos = ImGui::GetCursorPos();
 
 			// Отрисовка всех узлов
 			const auto& nodes = g_model.GetNodes();
@@ -345,10 +369,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				node->UIDraw(&g_model);
 				ImNodes::EndNode();
 
-				// Проверить запрос на удаление (установлен в DrawTitleBar)
-				if (node->GetField("__delete_requested") == "true")
+				// Применить позицию из модели (после загрузки файла — один раз)
+				if (g_applyNodePositions && !g_nodesPositionSet.count(node->GetId()))
 				{
-					node->SetField("__delete_requested", "");
+					// Сохранённые координаты — это grid space, поэтому используем SetNodeGridSpacePos
+					ImNodes::SetNodeGridSpacePos(node->GetId(), ImVec2(node->GetX(), node->GetY()));
+					g_nodesPositionSet.insert(node->GetId());
+				}
+
+				// Проверить запрос на удаление (установлен в DrawTitleBar)
+				if (node->Fields().Get("__delete_requested") == "true")
+				{
+					node->Fields().Set("__delete_requested", "");
 					g_model.DeleteNode(node->GetId());
 					continue;
 				}
@@ -356,6 +388,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				// Синхронизировать позицию из ImNodes в модель
 				ImVec2 gridPos = ImNodes::GetNodeGridSpacePos(node->GetId());
 				node->SetPos(gridPos.x, gridPos.y);
+			}
+
+			// Сбросить флаг применения позиций (после первого кадра загрузки)
+			if (g_applyNodePositions)
+			{
+				g_applyNodePositions = false;
 			}
 
 			// Отрисовка связей (каждый кадр)
@@ -461,7 +499,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	ImGui_ImplWin32_Shutdown();
 	ImNodes::DestroyContext();
 	ImGui::DestroyContext();
-
+	NodeFactory::Shutdown();
 	CleanupDeviceD3D();
 
 	return (int)msg.wParam;

@@ -1,0 +1,12 @@
+{
+  "type": "triplet",
+  "name": "Triplet",
+  "fixed": false,
+  "ports": {
+    "input": 3,
+    "output": 1
+  },
+  "fields": {
+    "name": "Triplet"
+  }
+}

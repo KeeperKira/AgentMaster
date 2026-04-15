@@ -93,36 +93,20 @@ void AgentModel::RemoveConnectionById(int conn_id)
 }
 
 // ============================================================================
-// Создание узлов
+// Создание узлов (NodeFactory — строковое имя типа)
 // ============================================================================
 
-Node* AgentModel::CreateNode(NodeType type)
+Node* AgentModel::CreateNode(const std::string& typeName)
 {
-	Node* newNode = nullptr;
+	Node* newNode = NodeFactory::CreateNodeByTypeName(typeName);
 
-	switch (type)
+	if (newNode == nullptr)
 	{
-	case NodeType::Text:
-		newNode = new TextNode(NextId());
-		break;
-	case NodeType::Triplet:
-		newNode = new TripletNode(NextId());
-		break;
-	case NodeType::Router:
-		newNode = new RouterNode(NextId());
-		break;
-	case NodeType::Concat:
-		newNode = new ConcatNode(NextId());
-		break;
-	case NodeType::Logger:
-		newNode = new LoggerNode(NextId());
-		break;
-	case NodeType::Gate:
-		newNode = new GateNode(NextId());
-		break;
-	default:
 		return nullptr;
 	}
+
+	// Назначить ID
+	newNode->Identity().id = NextId();
 
 	m_nodes.push_back(newNode);
 	return newNode;
@@ -199,41 +183,15 @@ std::string AgentModel::ToJson() const
 		json nodeJson;
 		nodeJson["id"] = node->GetId();
 
-		// Тип узла — строковое имя для JSON
-		switch (node->GetType())
-		{
-		case NodeType::Input:
-			nodeJson["type"] = "input";
-			break;
-		case NodeType::Output:
-			nodeJson["type"] = "output";
-			break;
-		case NodeType::Text:
-			nodeJson["type"] = "text";
-			break;
-		case NodeType::Triplet:
-			nodeJson["type"] = "triplet";
-			break;
-		case NodeType::Router:
-			nodeJson["type"] = "router";
-			break;
-		case NodeType::Concat:
-			nodeJson["type"] = "concat";
-			break;
-		case NodeType::Logger:
-			nodeJson["type"] = "logger";
-			break;
-		case NodeType::Gate:
-			nodeJson["type"] = "gate";
-			break;
-		}
+		// Тип узла — строковое имя из IdentityComponent
+		nodeJson["type"] = node->Identity().typeName;
 
 		nodeJson["x"] = node->GetX();
 		nodeJson["y"] = node->GetY();
 
 		// Поля
 		json fieldsJson;
-		const auto& fields = node->GetFields();
+		const auto& fields = node->Fields().fields;
 		for (const auto& [key, value] : fields)
 		{
 			fieldsJson[key] = value;
@@ -280,88 +238,46 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 				float x = nodeJson.value("x", 0.0f);
 				float y = nodeJson.value("y", 0.0f);
 
-				Node* newNode = nullptr;
+				// Input/Output — использовать существующие фиксированные узлы
+				if (type == "input" || type == "output")
+				{
+					Node* existing = GetNodeById(id);
+					if (existing && existing->Identity().typeName == type)
+					{
+						existing->SetPos(x, y);
+						// NOTE: SetNodeScreenSpacePos вызывается в цикле рендера, не здесь
 
-				if (type == "input")
-				{
-					// Найти существующий Input или создать новый
-					Node* existing = GetNodeById(id);
-					if (existing && existing->GetType() == NodeType::Input)
-					{
-						existing->SetPos(x, y);
-						ImNodes::SetNodeScreenSpacePos(existing->GetId(), ImVec2(x, y));
 						// Восстановить поля
 						if (nodeJson.contains("fields"))
 						{
 							for (const auto& [key, value] : nodeJson["fields"].items())
 							{
-								existing->SetField(key, value.get<std::string>());
+								existing->Fields().Set(key, value.get<std::string>());
 							}
 						}
 						if (id >= m_next_id) m_next_id = id + 1;
 						continue;
 					}
-					newNode = new InputNode(id);
 				}
-				else if (type == "output")
-				{
-					// Найти существующий Output или создать новый
-					Node* existing = GetNodeById(id);
-					if (existing && existing->GetType() == NodeType::Output)
-					{
-						existing->SetPos(x, y);
-						ImNodes::SetNodeScreenSpacePos(existing->GetId(), ImVec2(x, y));
-						// Восстановить поля
-						if (nodeJson.contains("fields"))
-						{
-							for (const auto& [key, value] : nodeJson["fields"].items())
-							{
-								existing->SetField(key, value.get<std::string>());
-							}
-						}
-						if (id >= m_next_id) m_next_id = id + 1;
-						continue;
-					}
-					newNode = new OutputNode(id);
-				}
-				else if (type == "text")
-				{
-					newNode = new TextNode(id);
-				}
-				else if (type == "triplet")
-				{
-					newNode = new TripletNode(id);
-				}
-				else if (type == "router")
-				{
-					newNode = new RouterNode(id);
-				}
-				else if (type == "concat")
-				{
-					newNode = new ConcatNode(id);
-				}
-				else if (type == "logger")
-				{
-					newNode = new LoggerNode(id);
-				}
-				else if (type == "gate")
-				{
-					newNode = new GateNode(id);
-				}
-				else
+
+				// Создать узел через фабрику
+				Node* newNode = NodeFactory::CreateNodeByTypeName(type);
+				if (newNode == nullptr)
 				{
 					continue; // Неизвестный тип — пропустить
 				}
 
+				// Назначить ID из JSON (сохраняем оригинальные ID)
+				newNode->Identity().id = id;
 				newNode->SetPos(x, y);
-				ImNodes::SetNodeScreenSpacePos(newNode->GetId(), ImVec2(x, y));
+				// NOTE: SetNodeScreenSpacePos вызывается в цикле рендера, не здесь
 
-				// Восстановить поля
+				// Восстановить поля (перезаписать значения из JSON)
 				if (nodeJson.contains("fields"))
 				{
 					for (const auto& [key, value] : nodeJson["fields"].items())
 					{
-						newNode->SetField(key, value.get<std::string>());
+						newNode->Fields().Set(key, value.get<std::string>());
 					}
 				}
 
@@ -453,16 +369,31 @@ bool AgentModel::LoadFromFile(const std::string& path)
 
 void AgentModel::InitDefaults()
 {
-	// Создать Input и Output
-	InputNode* inputNode = new InputNode(NextId());
-	inputNode->SetPos(100.0f, 300.0f);
-	ImNodes::SetNodeScreenSpacePos(inputNode->GetId(), ImVec2(100.0f, 300.0f));
-	m_nodes.push_back(inputNode);
+	// Создать Input
+	float posX = 100.0f;
+	float posY = 300.0f;
 
-	OutputNode* outputNode = new OutputNode(NextId());
-	outputNode->SetPos(600.0f, 300.0f);
-	ImNodes::SetNodeScreenSpacePos(outputNode->GetId(), ImVec2(600.0f, 300.0f));
-	m_nodes.push_back(outputNode);
+	Node* inputNode = NodeFactory::CreateNodeByTypeName("input");
+	if (inputNode)
+	{
+		inputNode->Identity().id = NextId();
+		inputNode->SetPos(posX, posY);
+		ImNodes::SetNodeScreenSpacePos(inputNode->GetId(), ImVec2(posX, posY));
+		m_nodes.push_back(inputNode);
+	}
+
+	// Создать Output
+	posX = 600.0f;
+	posY = 300.0f;
+
+	Node* outputNode = NodeFactory::CreateNodeByTypeName("output");
+	if (outputNode)
+	{
+		outputNode->Identity().id = NextId();
+		outputNode->SetPos(posX, posY);
+		ImNodes::SetNodeScreenSpacePos(outputNode->GetId(), ImVec2(posX, posY));
+		m_nodes.push_back(outputNode);
+	}
 }
 
 // ============================================================================

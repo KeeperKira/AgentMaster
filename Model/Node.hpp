@@ -2,8 +2,9 @@
 
 #include <map>
 #include <string>
+#include <vector>
 
-// Forward declaration (цикл с AgentModel.hpp)
+// Forward declaration
 class AgentModel;
 
 // ImGui
@@ -14,9 +15,8 @@ class AgentModel;
 // ImNodes
 #include <imnodes.h>
 
-
 // ============================================================================
-// Типы узлов
+// Типы узлов (строковые идентификаторы)
 // ============================================================================
 
 enum class NodeType
@@ -31,200 +31,133 @@ enum class NodeType
 	Gate
 };
 
-// Вспомогательные
+// Вспомогательные функции для ID атрибутов
 static inline int InputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex; }
 static inline int OutputAttrId(int nodeId, int portIndex) { return nodeId * 1000 + portIndex + 100; }
 
 // ============================================================================
-// Базовый класс Node
+// IdentityComponent — идентичность узла
+// ============================================================================
+
+struct IdentityComponent
+{
+	int id = 0;
+	NodeType type = NodeType::Input;
+	std::string typeName; // строковое имя типа
+	std::string displayName; // отображаемое имя (Input, Output, Text...)
+	bool fixed = false; // нельзя удалить
+
+	const char* GetTypeName() const { return typeName.c_str(); }
+};
+
+// ============================================================================
+// FieldsComponent — поля данных узла
+// ============================================================================
+
+struct FieldsComponent
+{
+	std::map<std::string, std::string> fields;
+
+	void Set(const std::string& key, const std::string& value) { fields[key] = value; }
+	std::string Get(const std::string& key) const
+	{
+		auto it = fields.find(key);
+		if (it != fields.end()) return it->second;
+		return "";
+	}
+	bool Has(const std::string& key) const { return fields.find(key) != fields.end(); }
+};
+
+// ============================================================================
+// PortsComponent — порты узла
+// ============================================================================
+
+struct PortsComponent
+{
+	int inputCount = 0;
+	int outputCount = 0;
+
+	int GetInputCount() const { return inputCount; }
+	int GetOutputCount() const { return outputCount; }
+};
+
+// ============================================================================
+// UIConfig — конфигурация отрисовки тела узла
+// ============================================================================
+
+struct UIConfig
+{
+	enum class ContentType
+	{
+		None,
+		TextMultiline,
+		TextInputs,
+		Checkbox
+	};
+
+	ContentType contentType = ContentType::None;
+
+	// Для TextMultiline
+	std::string textMultilineField;
+	float textMultilineSize[2] = { 180.0f, 80.0f };
+
+	// Для TextInputs
+	std::vector<std::string> textInputFields;
+	float textInputWidth = 180.0f;
+
+	// Для Checkbox
+	std::string checkboxField;
+};
+
+// ============================================================================
+// Node — единый класс узла (без наследования)
 // ============================================================================
 
 class Node
 {
 public:
-	virtual ~Node() = default;
+	Node();
+	~Node() = default;
 
-	// Идентификатор
-	int GetId() const;
-	// Позиция на canvas
-	float GetX() const;
-	float GetY() const;
+	// Компоненты
+	IdentityComponent& Identity() { return m_identity; }
+	const IdentityComponent& Identity() const { return m_identity; }
+
+	FieldsComponent& Fields() { return m_fields; }
+	const FieldsComponent& Fields() const { return m_fields; }
+
+	PortsComponent& Ports() { return m_ports; }
+	const PortsComponent& Ports() const { return m_ports; }
+
+	UIConfig& GetUI() { return m_uiConfig; }
+	const UIConfig& GetUI() const { return m_uiConfig; }
+
+	// Позиция
+	float GetX() const { return m_x; }
+	float GetY() const { return m_y; }
 	void SetPos(float x, float y);
 
-	// Полная отрисовка узла в ImNodes (заголовок, поля, порты)
-	virtual void UIDraw(AgentModel* model);
+	// Полная отрисовка узла в ImNodes
+	void UIDraw(AgentModel* model);
 
-	// Порты (определяются производными классами)
-	virtual int GetInputCount() const = 0;
-	virtual int GetOutputCount() const = 0;
+	// Удобные методы
+	int GetId() const { return m_identity.id; }
+	NodeType GetType() const { return m_identity.type; }
+	const char* GetTypeName() const { return m_identity.GetTypeName(); }
+	bool IsFixed() const { return m_identity.fixed; }
 
-	// Тип
-	virtual NodeType GetType() const = 0;
-	virtual const char* GetTypeName() const = 0;
+private:
+	// Компоненты
+	IdentityComponent m_identity;
+	FieldsComponent m_fields;
+	PortsComponent m_ports;
+	UIConfig m_uiConfig;
 
-	// Поля
-	const std::map<std::string, std::string>& GetFields() const;
-	void SetField(const std::string& key, const std::string& value);
-	std::string GetField(const std::string& key) const;
-	bool HasField(const std::string& key) const;
-	// Фиксированные узлы (Input/Output) — нельзя удалить
-	bool IsFixed() const;
+	// Позиция на canvas
+	float m_x = 0.0f;
+	float m_y = 0.0f;
 
-protected:
-	Node(int id, bool fixed);
-
-	// Отрисовка тела узла (переопределяется в потомках)
-	virtual void DrawContent();
-	// Отрисовка кнопки удаления + заголовка + имени
+	// Внутренние методы отрисовки
 	void DrawTitleBar();
-
-	int m_id;
-	float m_x;
-	float m_y;
-	bool m_fixed;
-	std::map<std::string, std::string> m_fields;
-};
-
-// ============================================================================
-// InputNode — точка входа запроса
-// ============================================================================
-
-class InputNode : public Node
-{
-public:
-	InputNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// OutputNode — точка выхода ответа
-// ============================================================================
-
-class OutputNode : public Node
-{
-public:
-	OutputNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// TextNode — текстовый блок
-// ============================================================================
-
-class TextNode : public Node
-{
-public:
-	TextNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// TripletNode — блок контекста (3 входа, 1 выход)
-// ============================================================================
-
-class TripletNode : public Node
-{
-public:
-	TripletNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// RouterNode — роутер к внешнему API
-// ============================================================================
-
-class RouterNode : public Node
-{
-public:
-	RouterNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// ConcatNode — объединение двух входов в один выход
-// ============================================================================
-
-class ConcatNode : public Node
-{
-public:
-	ConcatNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// LoggerNode — логирование проходящих данных
-// ============================================================================
-
-class LoggerNode : public Node
-{
-public:
-	LoggerNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
-};
-
-// ============================================================================
-// GateNode — шлюз с условием (2 входа: Data / Condition, 1 выход)
-// ============================================================================
-
-class GateNode : public Node
-{
-public:
-	GateNode(int id);
-
-	int GetInputCount() const override;
-	int GetOutputCount() const override;
-	NodeType GetType() const override;
-	const char* GetTypeName() const override;
-
-protected:
-	void DrawContent() override;
+	void DrawContent();
 };

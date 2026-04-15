@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Node.hpp"
+#include "NodeFactory.hpp"
 #include <string>
 #include <vector>
 
@@ -46,8 +47,8 @@ public:
 	void RemoveConnection(int from_node_id, int to_node_id);
 	void RemoveConnectionById(int conn_id);
 
-	// Создание узлов
-	Node* CreateNode(NodeType type);
+	// Создание узлов (использует NodeFactory — принимает строковое имя типа)
+	Node* CreateNode(const std::string& typeName);
 
 	// Удаление узлов (нельзя удалить фиксированные Input/Output)
 	bool DeleteNode(int id);

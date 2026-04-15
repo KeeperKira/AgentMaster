@@ -1,0 +1,74 @@
+{
+  "connections": [
+    {
+      "from_node": 1,
+      "from_port": 0,
+      "id": 5,
+      "to_node": 4,
+      "to_port": 1
+    },
+    {
+      "from_node": 4,
+      "from_port": 0,
+      "id": 7,
+      "to_node": 2,
+      "to_port": 0
+    },
+    {
+      "from_node": 6,
+      "from_port": 0,
+      "id": 8,
+      "to_node": 4,
+      "to_port": 0
+    }
+  ],
+  "nodes": [
+    {
+      "fields": {
+        "name": "Input"
+      },
+      "id": 1,
+      "type": "input",
+      "x": 31.0,
+      "y": 455.0
+    },
+    {
+      "fields": {
+        "name": "Output"
+      },
+      "id": 2,
+      "type": "output",
+      "x": 792.0,
+      "y": 458.0
+    },
+    {
+      "fields": {
+        "name": "Triplet"
+      },
+      "id": 3,
+      "type": "triplet",
+      "x": 739.0,
+      "y": 37.0
+    },
+    {
+      "fields": {
+        "name": "Concat",
+        "wait": "true"
+      },
+      "id": 4,
+      "type": "concat",
+      "x": 318.0,
+      "y": 288.0
+    },
+    {
+      "fields": {
+        "name": "Text",
+        "text": ""
+      },
+      "id": 6,
+      "type": "text",
+      "x": 46.0,
+      "y": 61.0
+    }
+  ]
+}

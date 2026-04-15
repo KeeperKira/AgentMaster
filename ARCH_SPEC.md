@@ -1,9 +1,8 @@
 # Архитектура и программные решения — AgentMaster
 
 > **Дата создания:** 13 апреля 2026
-> **Дата обновления:** 14 апреля 2026
-> **Статус:** Утверждено
-> **Ответственный:** Bakharev Yuri
+> **Дата обновления:** 15 апреля 2026
+
 
 ---
 
@@ -23,6 +22,17 @@ vcpkg install:
 
 external/ (вручную):
 └── imnodes/                   # ImNodes (git clone из Nelarius/imnodes)
+
+Nodes/ (JSON-шаблоны):
+├── input.json                 # Input (fixed)
+├── output.json                # Output (fixed)
+├── text.json                  # Text
+├── triplet.json               # Triplet
+├── router.json                # Router
+├── concat.json                # Concat
+├── logger.json                # Logger
+├── gate.json                  # Gate
+└── Sum.json                   # Summa
 ```
 
 ### Статус зависимостей
@@ -109,39 +119,76 @@ external/ (вручную):
 
 ## 4. Архитектура
 
-### 4.1. Модель данных — Наследование
+### 4.1. Модель данных — Компонентный подход
 
-- **Базовый класс `Node`** — общий интерфейс для всех типов
-- **Производные классы** — `InputNode`, `OutputNode`, `TextNode`, `TripletNode`, `RouterNode`, `ConcatNode`
-- **Поля каждого узла** хранятся в `std::map<std::string, std::string>` (гибко, но без type-safety)
-- **Порты** определяются через виртуальные методы `GetInputCount()` / `GetOutputCount()`
+- **Единый класс `Node`** — вместо наследования, узлы состоят из компонентов
+- **Компоненты:** `IdentityComponent`, `FieldsComponent`, `PortsComponent`, `UIConfig`
+- **Поля каждого узла** хранятся в `FieldsComponent::fields` — `std::map<std::string, std::string>`
+- **NodeFactory** — загружает JSON-шаблоны из `Nodes/`, создаёт узлы динамически
+- **Порты** определяются из шаблона (`ports.input`, `ports.output`)
 - **Коллекция:** `std::vector<Node*>` в `AgentModel` (сырые указатели, удаление через деструктор)
 - **ID:** автоинкремент (1, 2, 3...)
 - **Input/Output:** создаются при старте, не в каталоге, нельзя удалить
 - **Имена:** автозаполнение при создании (`"Тип #ID"`), редактируются пользователем
 
-### 4.2. Иерархия классов
+### 4.2. Компоненты узла
 
 ```cpp
-class Node {
-    virtual int GetInputCount() const = 0;
-    virtual int GetOutputCount() const = 0;
-    virtual NodeType GetType() const = 0;
-    virtual const char* GetTypeName() const = 0;
-
-    bool IsFixed() const;  // Input/Output = true
-    // Поля: m_fields — std::map<std::string, std::string>
+// IdentityComponent — идентичность
+struct IdentityComponent {
+    int id = 0;
+    NodeType type = NodeType::Input;
+    std::string typeName;     // "input", "router", "text"...
+    std::string displayName;  // "Input", "Router", "Text"...
+    bool fixed = false;       // нельзя удалить
 };
 
-class InputNode   : public Node { 0 in,  1 out, name };
-class OutputNode  : public Node { 1 in,  1 out, name };
-class TextNode    : public Node { 0 in,  1 out, name, text };
-class TripletNode : public Node { 3 in,  1 out, name };
-class RouterNode  : public Node { 1 in,  1 out, name, model, url, api_key };
-class ConcatNode  : public Node { 2 in,  1 out, name, wait };
+// FieldsComponent — данные
+struct FieldsComponent {
+    std::map<std::string, std::string> fields;
+    void Set(const std::string& key, const std::string& value);
+    std::string Get(const std::string& key) const;
+};
+
+// PortsComponent — порты
+struct PortsComponent {
+    int inputCount = 0;
+    int outputCount = 0;
+};
+
+// UIConfig — отрисовка тела
+struct UIConfig {
+    enum class ContentType { None, TextMultiline, TextInputs, Checkbox };
+    ContentType contentType = ContentType::None;
+    // ... детали для каждого типа контента
+};
+
+// Node — единый класс (композиция вместо наследования)
+class Node {
+    IdentityComponent m_identity;
+    FieldsComponent m_fields;
+    PortsComponent m_ports;
+    UIConfig m_uiConfig;
+    float m_x = 0, m_y = 0;
+};
 ```
 
-### 4.3. Структура Connection
+### 4.3. NodeFactory
+
+```cpp
+class NodeFactory {
+    static bool Initialize(const std::string& nodesDir);  // загрузка Nodes/*.json
+    static Node* CreateNodeByTypeName(const std::string& typeName);
+    static std::vector<std::string> GetAllTemplateNames(); // для каталога
+    static bool IsTemplateFixed(const std::string& typeName);
+    // ...
+private:
+    struct NodeTemplate { /* тип, порты, поля, UI */ };
+    static std::map<std::string, NodeTemplate> s_templates;
+};
+```
+
+### 4.4. Структура Connection
 
 ```cpp
 struct Connection {
@@ -153,7 +200,7 @@ struct Connection {
 };
 ```
 
-### 4.4. Разделение ответственности
+### 4.5. Разделение ответственности
 
 | Компонент | Задача |
 |---|---|
@@ -161,7 +208,7 @@ struct Connection {
 | **UI (ImGui/ImNodes)** | Отрисовка, обработка ввода |
 | **Win32** | Окно, цикл сообщений, инициализация ImGui |
 
-### 4.5. Валидация соединений
+### 4.6. Валидация соединений
 
 - **Только на уровне UI** (ImNodes)
 - Model не проверяет правила соединений — просто хранит
@@ -186,6 +233,7 @@ struct Connection {
 - Нельзя удалить
 - Можно перемещать
 - При JSON загрузке — обновляются вместо создания дубликатов
+- `fixed: true` в JSON-шаблоне
 
 ### 6.2. Правила соединений
 
@@ -237,7 +285,23 @@ struct Connection {
 
 ---
 
-## 9. Возможные будущие узлы
+## 9. Реализованные и возможные будущие узлы
+
+### ✅ Реализованы
+
+| Узел | Назначение |
+|---|---|
+| **Input** | Точка входа (fixed) |
+| **Output** | Точка выхода (fixed) |
+| **Text** | Текстовый блок |
+| **Triplet** | Блок контекста (3 входа) |
+| **Router** | Маршрутизация к API |
+| **Concat** | Объединение потоков |
+| **Logger** | Логирование данных |
+| **Gate** | Шлюз с условием |
+| **Summa** | Сумматор |
+
+### ⏳ Возможные будущие
 
 | Узел | Назначение |
 |---|---|
@@ -246,6 +310,5 @@ struct Connection {
 | **Splitter** | Разбивка текста на чанки |
 | **Parser** | Извлечение данных из JSON/XML |
 | **LLM Prompt** | Упрощённый роутер с预设-хедерами |
-| **Logger** | Логирование проходящих данных |
 | **Delay** | Пауза перед отправкой (rate-limit) |
 | **Comment** | Текстовая плашка для пояснений на канвасе |

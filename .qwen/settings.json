@@ -15,7 +15,14 @@
       "Bash(git init)",
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash(ren *)"
+      "Bash(ren *)",
+      "Bash(\"c:\\program files (x86)\\microsoft visual studio\\2022\\buildtools\\msbuild\\current\\bin\\msbuild.exe\" *)",
+      "Bash(set *)",
+      "Bash(del *)",
+      "Bash(do *)",
+      "Bash(\"c:\\program files\\7-zip\\7z.exe\" *)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
     ]
   },
   "$version": 3

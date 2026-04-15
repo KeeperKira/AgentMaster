@@ -1,0 +1,16 @@
+{
+  "type": "concat",
+  "name": "Concat",
+  "fixed": false,
+  "ports": {
+    "input": 2,
+    "output": 1
+  },
+  "fields": {
+    "name": "Concat",
+    "wait": "false"
+  },
+  "ui": {
+    "checkbox": "wait"
+  }
+}

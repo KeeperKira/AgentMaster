@@ -1,0 +1,17 @@
+{
+  "type": "gate",
+  "name": "Gate",
+  "fixed": false,
+  "ports": {
+    "input": 2,
+    "output": 1
+  },
+  "fields": {
+    "name": "Gate",
+    "condition": ""
+  },
+  "ui": {
+    "text_inputs": ["condition"],
+    "input_width": 180
+  }
+}
