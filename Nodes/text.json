@@ -8,9 +8,11 @@
   },
   "fields": {
     "name": "Text",
-    "text": ""
+    "text": "",
+	"single":"false"
   },
   "ui": {
+	"checkbox":"single",
     "text_multiline": true,
     "text_size": [180, 80]
   }

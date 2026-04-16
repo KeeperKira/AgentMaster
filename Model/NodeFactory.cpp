@@ -263,11 +263,15 @@ UIConfig NodeFactory::ParseUIConfig(const nlohmann::json& json)
 	UIConfig config;
 
 	// Multiline text
-	if (json.contains("text_multiline") && json["text_multiline"].is_boolean())
+	if (json.contains("text_multiline"))
 	{
-		if (json["text_multiline"].get<bool>())
+		// Debug: выводим тип и значение
+		// std::string debugStr = json["text_multiline"].dump();
+		// OutputDebugStringA(("text_multiline: " + debugStr + "\n").c_str());
+		
+		if (json["text_multiline"].is_boolean() && json["text_multiline"].get<bool>())
 		{
-			config.contentType = UIConfig::ContentType::TextMultiline;
+			config.enableTextMultiline = true;
 			config.textMultilineField = "text"; // default
 
 			// Если есть fields, взять первое не-"name" поле
@@ -287,7 +291,7 @@ UIConfig NodeFactory::ParseUIConfig(const nlohmann::json& json)
 	// Text inputs
 	if (json.contains("text_inputs") && json["text_inputs"].is_array())
 	{
-		config.contentType = UIConfig::ContentType::TextInputs;
+		config.enableTextInputs = true;
 		config.textInputWidth = json.value("input_width", 180.0f);
 
 		for (const auto& field : json["text_inputs"])
@@ -299,7 +303,7 @@ UIConfig NodeFactory::ParseUIConfig(const nlohmann::json& json)
 	// Checkbox
 	if (json.contains("checkbox") && json["checkbox"].is_string())
 	{
-		config.contentType = UIConfig::ContentType::Checkbox;
+		config.enableCheckbox = true;
 		config.checkboxField = json["checkbox"].get<std::string>();
 	}
 

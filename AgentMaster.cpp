@@ -203,26 +203,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 			{
 				if (ImGui::BeginMenu("File"))
 				{
-					if (ImGui::MenuItem("Save JSON..."))
+					if (ImGui::MenuItem("New Schema..."))
 					{
-						OPENFILENAMEA ofn = {};
-						char szFile[MAX_PATH] = "agent.json";
-						ofn.lStructSize = sizeof(ofn);
-						ofn.hwndOwner = g_hWnd;
-						ofn.lpstrFile = szFile;
-						ofn.nMaxFile = MAX_PATH;
-						ofn.lpstrFilter = "JSON Files\0*.json\0All Files\0*.*\0";
-						ofn.nFilterIndex = 1;
-						ofn.lpstrFileTitle = nullptr;
-						ofn.nMaxFileTitle = 0;
-						ofn.lpstrInitialDir = nullptr;
-						ofn.Flags = OFN_OVERWRITEPROMPT;
-						if (GetSaveFileDialogA(&ofn))
+						if (MessageBoxA(g_hWnd, "Create new schema? Current work will be lost.", "Confirm", MB_ICONQUESTION | MB_YESNO) == IDYES)
 						{
-							if (!g_model.SaveToFile(szFile))
-							{
-								MessageBoxA(g_hWnd, "Failed to save file.", "Error", MB_ICONERROR);
-							}
+							g_model.ClearAll();
+							g_nodesPositionSet.clear();
+							g_applyNodePositions = true; // применить позиции в следующем кадре
 						}
 					}
 					if (ImGui::MenuItem("Load JSON..."))
@@ -249,6 +236,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 							else
 							{
 								MessageBoxA(g_hWnd, "Failed to load file.", "Error", MB_ICONERROR);
+							}
+						}
+					}
+					if (ImGui::MenuItem("Save JSON..."))
+					{
+						OPENFILENAMEA ofn = {};
+						char szFile[MAX_PATH] = "agent.json";
+						ofn.lStructSize = sizeof(ofn);
+						ofn.hwndOwner = g_hWnd;
+						ofn.lpstrFile = szFile;
+						ofn.nMaxFile = MAX_PATH;
+						ofn.lpstrFilter = "JSON Files\0*.json\0All Files\0*.*\0";
+						ofn.nFilterIndex = 1;
+						ofn.lpstrFileTitle = nullptr;
+						ofn.nMaxFileTitle = 0;
+						ofn.lpstrInitialDir = nullptr;
+						ofn.Flags = OFN_OVERWRITEPROMPT;
+						if (GetSaveFileDialogA(&ofn))
+						{
+							if (!g_model.SaveToFile(szFile))
+							{
+								MessageBoxA(g_hWnd, "Failed to save file.", "Error", MB_ICONERROR);
 							}
 						}
 					}

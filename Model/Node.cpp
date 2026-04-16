@@ -100,76 +100,66 @@ void Node::DrawTitleBar()
 }
 
 // ============================================================================
-// DrawContent — тело узла (зависит от UIConfig)
+// DrawContent — тело узла (поддержка комбинаций типов контента)
 // ============================================================================
 
 void Node::DrawContent()
 {
-	switch (m_uiConfig.contentType)
+	ImGui::PushID(m_identity.id);
+
+	// TextMultiline (одно поле)
+	if (m_uiConfig.enableTextMultiline)
 	{
-	case UIConfig::ContentType::TextMultiline:
+		char textBuf[512];
+		strncpy_s(textBuf, m_fields.Get(m_uiConfig.textMultilineField).c_str(), sizeof(textBuf) - 1);
+		textBuf[sizeof(textBuf) - 1] = '\0';
+		ImGui::PushItemWidth(m_uiConfig.textMultilineSize[0]);
+		if (ImGui::InputTextMultiline(("##text_" + m_uiConfig.textMultilineField).c_str(), textBuf, sizeof(textBuf), ImVec2(m_uiConfig.textMultilineSize[0], m_uiConfig.textMultilineSize[1])))
 		{
-			ImGui::PushID(m_identity.id);
-			char textBuf[512];
-			strncpy_s(textBuf, m_fields.Get(m_uiConfig.textMultilineField).c_str(), sizeof(textBuf) - 1);
-			textBuf[sizeof(textBuf) - 1] = '\0';
-			ImGui::PushItemWidth(m_uiConfig.textMultilineSize[0]);
-			if (ImGui::InputTextMultiline("##text", textBuf, sizeof(textBuf), ImVec2(m_uiConfig.textMultilineSize[0], m_uiConfig.textMultilineSize[1])))
+			m_fields.Set(m_uiConfig.textMultilineField, textBuf);
+		}
+		if (ImGui::IsItemDeactivatedAfterEdit())
+		{
+			m_fields.Set(m_uiConfig.textMultilineField, textBuf);
+		}
+		ImGui::PopItemWidth();
+	}
+
+	// TextInputs (несколько полей)
+	if (m_uiConfig.enableTextInputs)
+	{
+		for (const auto& fieldName : m_uiConfig.textInputFields)
+		{
+			char buf[256];
+			strncpy_s(buf, m_fields.Get(fieldName).c_str(), sizeof(buf) - 1);
+			buf[sizeof(buf) - 1] = '\0';
+			ImGui::PushItemWidth(m_uiConfig.textInputWidth);
+
+			// Capitalize field label
+			std::string label = fieldName;
+			if (!label.empty()) label[0] = toupper(label[0]);
+
+			if (ImGui::InputText(label.c_str(), buf, sizeof(buf)))
 			{
-				m_fields.Set(m_uiConfig.textMultilineField, textBuf);
+				m_fields.Set(fieldName, buf);
 			}
 			if (ImGui::IsItemDeactivatedAfterEdit())
 			{
-				m_fields.Set(m_uiConfig.textMultilineField, textBuf);
+				m_fields.Set(fieldName, buf);
 			}
 			ImGui::PopItemWidth();
-			ImGui::PopID();
 		}
-		break;
-
-	case UIConfig::ContentType::TextInputs:
-		{
-			ImGui::PushID(m_identity.id);
-			for (const auto& fieldName : m_uiConfig.textInputFields)
-			{
-				char buf[256];
-				strncpy_s(buf, m_fields.Get(fieldName).c_str(), sizeof(buf) - 1);
-				buf[sizeof(buf) - 1] = '\0';
-				ImGui::PushItemWidth(m_uiConfig.textInputWidth);
-
-				// Capitalize field label
-				std::string label = fieldName;
-				if (!label.empty()) label[0] = toupper(label[0]);
-
-				if (ImGui::InputText(label.c_str(), buf, sizeof(buf)))
-				{
-					m_fields.Set(fieldName, buf);
-				}
-				if (ImGui::IsItemDeactivatedAfterEdit())
-				{
-					m_fields.Set(fieldName, buf);
-				}
-				ImGui::PopItemWidth();
-			}
-			ImGui::PopID();
-		}
-		break;
-
-	case UIConfig::ContentType::Checkbox:
-		{
-			ImGui::PushID(m_identity.id);
-			bool checked = (m_fields.Get(m_uiConfig.checkboxField) == "true");
-			if (ImGui::Checkbox(m_uiConfig.checkboxField.c_str(), &checked))
-			{
-				m_fields.Set(m_uiConfig.checkboxField, checked ? "true" : "false");
-			}
-			ImGui::PopID();
-		}
-		break;
-
-	case UIConfig::ContentType::None:
-	default:
-		// Нет контента
-		break;
 	}
+
+	// Checkbox
+	if (m_uiConfig.enableCheckbox)
+	{
+		bool checked = (m_fields.Get(m_uiConfig.checkboxField) == "true");
+		if (ImGui::Checkbox(m_uiConfig.checkboxField.c_str(), &checked))
+		{
+			m_fields.Set(m_uiConfig.checkboxField, checked ? "true" : "false");
+		}
+	}
+
+	ImGui::PopID();
 }

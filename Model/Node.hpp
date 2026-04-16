@@ -98,14 +98,17 @@ struct UIConfig
 	ContentType contentType = ContentType::None;
 
 	// Для TextMultiline
+	bool enableTextMultiline = false;
 	std::string textMultilineField;
 	float textMultilineSize[2] = { 180.0f, 80.0f };
 
 	// Для TextInputs
+	bool enableTextInputs = false;
 	std::vector<std::string> textInputFields;
 	float textInputWidth = 180.0f;
 
 	// Для Checkbox
+	bool enableCheckbox = false;
 	std::string checkboxField;
 };
 

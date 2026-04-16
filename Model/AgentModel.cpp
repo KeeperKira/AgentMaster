@@ -151,20 +151,11 @@ bool AgentModel::DeleteNode(int id)
 
 void AgentModel::ClearAll()
 {
-	// Удалить все кроме фиксированных
-	for (auto node : m_nodes)
-	{
-		if (!node->IsFixed())
-		{
-			delete node;
-		}
-	}
-	m_nodes.erase(
-		std::remove_if(m_nodes.begin(), m_nodes.end(),
-			[](Node* node) { return !node->IsFixed(); }),
-		m_nodes.end()
-	);
+
+	m_nodes.clear();
 	m_connections.clear();
+	m_next_id = 1;
+	InitDefaults();
 }
 
 // ============================================================================

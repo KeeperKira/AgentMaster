@@ -3,7 +3,7 @@
   "name": "Input",
   "fixed": true,
   "ports": {
-    "input": 0,
+    "input": 1,
     "output": 1
   },
   "fields": {
