@@ -28,7 +28,8 @@ enum class NodeType
 	Router,
 	Concat,
 	Logger,
-	Gate
+	Gate,
+	Sum
 };
 
 // Вспомогательные функции для ID атрибутов

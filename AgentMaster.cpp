@@ -150,6 +150,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	// Инициализировать модель (создаёт Input + Output)
 	g_model.InitDefaults();
 
+	// Применить начальные позиции к ImNodes
+	for (const auto& node : g_model.GetNodes())
+	{
+		ImNodes::SetNodeGridSpacePos(node->GetId(), ImVec2(node->GetX(), node->GetY()));
+		g_nodesPositionSet.insert(node->GetId());
+	}
+
 	HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_AGENTMASTER));
 
 	MSG msg = {};
@@ -351,20 +358,21 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 					if (newNode != nullptr)
 					{
 						g_placingNode = false;
-					}
-					ImVec2 editorPos = ImGui::GetCursorPos();
-					float nodeScreenX = g_pendingMouseX - editorPos.x;
-					float nodeScreenY = g_pendingMouseY - editorPos.y;
 
-					ImNodes::SetNodeScreenSpacePos(newNode->GetId(), ImVec2(nodeScreenX, nodeScreenY));
-					g_nodesPositionSet.insert(newNode->GetId());
+						ImVec2 editorPos = ImGui::GetCursorPos();
+						float nodeScreenX = g_pendingMouseX - editorPos.x;
+						float nodeScreenY = g_pendingMouseY - editorPos.y;
+
+						ImNodes::SetNodeScreenSpacePos(newNode->GetId(), ImVec2(nodeScreenX, nodeScreenY));
+						g_nodesPositionSet.insert(newNode->GetId());
+					}
 				}
 
 				// Визуальная подсказка — текст рядом с курсором
 				ImGui::SetNextWindowBgAlpha(0.8f);
 				ImGui::BeginTooltip();
-				const char* typeName = NodeFactory::GetDisplayNameByTypeName(g_pendingNodeTypeName).c_str();
-				ImGui::Text("Place %s node", typeName);
+				std::string typeName = NodeFactory::GetDisplayNameByTypeName(g_pendingNodeTypeName);
+				ImGui::Text("Place %s node", typeName.c_str());
 				ImGui::EndTooltip();
 			}
 
@@ -372,7 +380,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 			// Отрисовка всех узлов
 			const auto& nodes = g_model.GetNodes();
-			for (Node* node : nodes)
+			for (const auto& node : nodes)
 			{
 				ImNodes::BeginNode(node->GetId());
 				node->UIDraw(&g_model);
@@ -423,18 +431,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 				int hoveredAttrId = -1;
 				if (ImNodes::IsPinHovered(&hoveredAttrId) && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
 				{
-					// Удалить все связи где участвует этот атрибут
-					auto& conns = g_model.GetConnectionsMutable();
-					conns.erase(
-						std::remove_if(conns.begin(), conns.end(),
-							[hoveredAttrId](const Connection& conn)
-							{
-								int startAttr = OutputAttrId(conn.from_node_id, conn.from_port_index);
-								int endAttr = InputAttrId(conn.to_node_id, conn.to_port_index);
-								return startAttr == hoveredAttrId || endAttr == hoveredAttrId;
-							}),
-						conns.end()
-					);
+					g_model.RemoveConnectionsForPin(hoveredAttrId);
 				}
 			}
 

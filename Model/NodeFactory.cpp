@@ -46,7 +46,7 @@ void NodeFactory::Shutdown()
 // CreateNode — создать узел по типу
 // ============================================================================
 
-Node* NodeFactory::CreateNode(NodeType type)
+std::unique_ptr<Node> NodeFactory::CreateNode(NodeType type)
 {
 	// Найти шаблон по типу
 	std::string typeName;
@@ -60,6 +60,7 @@ Node* NodeFactory::CreateNode(NodeType type)
 	case NodeType::Concat:   typeName = "concat"; break;
 	case NodeType::Logger:   typeName = "logger"; break;
 	case NodeType::Gate:     typeName = "gate"; break;
+	case NodeType::Sum:      typeName = "Summa"; break;
 	default: return nullptr;
 	}
 
@@ -70,7 +71,7 @@ Node* NodeFactory::CreateNode(NodeType type)
 // CreateNodeByTypeName — создать узел по строковому имени
 // ============================================================================
 
-Node* NodeFactory::CreateNodeByTypeName(const std::string& typeName)
+std::unique_ptr<Node> NodeFactory::CreateNodeByTypeName(const std::string& typeName)
 {
 	auto it = s_templates.find(typeName);
 	if (it == s_templates.end())
@@ -80,7 +81,7 @@ Node* NodeFactory::CreateNodeByTypeName(const std::string& typeName)
 
 	const auto& tmpl = it->second;
 
-	Node* node = new Node();
+	auto node = std::make_unique<Node>();
 
 	// IdentityComponent
 	node->Identity().id = 0; // будет установлен caller'ом
@@ -111,7 +112,12 @@ Node* NodeFactory::CreateNodeByTypeName(const std::string& typeName)
 
 std::string NodeFactory::GetDisplayName(NodeType type)
 {
-	return CreateNode(type) ? CreateNode(type)->GetTypeName() : "Unknown";
+	for (const auto& [key, tmpl] : s_templates)
+	{
+		if (tmpl.type == type)
+			return tmpl.displayName;
+	}
+	return "Unknown";
 }
 
 std::string NodeFactory::GetDisplayNameByTypeName(const std::string& typeName)
@@ -251,6 +257,7 @@ NodeType NodeFactory::ParseNodeType(const std::string& typeName)
 	if (typeName == "concat")   return NodeType::Concat;
 	if (typeName == "logger")   return NodeType::Logger;
 	if (typeName == "gate")     return NodeType::Gate;
+	if (typeName == "Summa")    return NodeType::Sum;
 	return NodeType::Input; // default
 }
 

@@ -21,10 +21,10 @@ public:
 	static void Shutdown();
 
 	// Создать узел по типу
-	static Node* CreateNode(NodeType type);
+	static std::unique_ptr<Node> CreateNode(NodeType type);
 
 	// Создать узел по строковому имени типа
-	static Node* CreateNodeByTypeName(const std::string& typeName);
+	static std::unique_ptr<Node> CreateNodeByTypeName(const std::string& typeName);
 
 	// Получить displayName по типу
 	static std::string GetDisplayName(NodeType type);

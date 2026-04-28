@@ -4,6 +4,7 @@
 #include "NodeFactory.hpp"
 #include <string>
 #include <vector>
+#include <memory>
 
 // ============================================================================
 // Connection — связь между портами
@@ -37,15 +38,15 @@ public:
 	~AgentModel();
 
 	// Узлы
-	const std::vector<Node*>& GetNodes() const;
+	const std::vector<std::unique_ptr<Node>>& GetNodes() const;
 	Node* GetNodeById(int id) const;
 
 	// Связи
 	const std::vector<Connection>& GetConnections() const;
-	std::vector<Connection>& GetConnectionsMutable();
 	void AddConnection(const Connection& conn);
 	void RemoveConnection(int from_node_id, int to_node_id);
 	void RemoveConnectionById(int conn_id);
+	void RemoveConnectionsForPin(int attrId);
 
 	// Создание узлов (использует NodeFactory — принимает строковое имя типа)
 	Node* CreateNode(const std::string& typeName);
@@ -68,7 +69,7 @@ public:
 private:
 	int NextId();
 
-	std::vector<Node*> m_nodes;
+	std::vector<std::unique_ptr<Node>> m_nodes;
 	std::vector<Connection> m_connections;
 	int m_next_id = 1;
 };

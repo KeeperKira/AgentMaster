@@ -22,18 +22,18 @@ AgentModel::~AgentModel()
 // Доступ к данным
 // ============================================================================
 
-const std::vector<Node*>& AgentModel::GetNodes() const
+const std::vector<std::unique_ptr<Node>>& AgentModel::GetNodes() const
 {
 	return m_nodes;
 }
 
 Node* AgentModel::GetNodeById(int id) const
 {
-	for (auto node : m_nodes)
+	for (const auto& node : m_nodes)
 	{
 		if (node->GetId() == id)
 		{
-			return node;
+			return node.get();
 		}
 	}
 	return nullptr;
@@ -44,17 +44,33 @@ const std::vector<Connection>& AgentModel::GetConnections() const
 	return m_connections;
 }
 
-std::vector<Connection>& AgentModel::GetConnectionsMutable()
-{
-	return m_connections;
-}
-
 // ============================================================================
 // Связи
 // ============================================================================
 
 void AgentModel::AddConnection(const Connection& conn)
 {
+	// Проверка: узлы существуют
+	Node* fromNode = GetNodeById(conn.from_node_id);
+	Node* toNode = GetNodeById(conn.to_node_id);
+	if (!fromNode || !toNode)
+		return;
+
+	// Проверка: порты валидны
+	if (conn.from_port_index < 0 || conn.from_port_index >= fromNode->Ports().GetOutputCount())
+		return;
+	if (conn.to_port_index < 0 || conn.to_port_index >= toNode->Ports().GetInputCount())
+		return;
+
+	// Проверка: входной порт уже занят?
+	for (const auto& existing : m_connections)
+	{
+		if (existing.to_node_id == conn.to_node_id && existing.to_port_index == conn.to_port_index)
+		{
+			return; // Один вход — одна связь
+		}
+	}
+
 	// Проверка на дубликат
 	for (const auto& existing : m_connections)
 	{
@@ -98,9 +114,9 @@ void AgentModel::RemoveConnectionById(int conn_id)
 
 Node* AgentModel::CreateNode(const std::string& typeName)
 {
-	Node* newNode = NodeFactory::CreateNodeByTypeName(typeName);
+	auto newNode = NodeFactory::CreateNodeByTypeName(typeName);
 
-	if (newNode == nullptr)
+	if (!newNode)
 	{
 		return nullptr;
 	}
@@ -108,8 +124,9 @@ Node* AgentModel::CreateNode(const std::string& typeName)
 	// Назначить ID
 	newNode->Identity().id = NextId();
 
-	m_nodes.push_back(newNode);
-	return newNode;
+	Node* raw = newNode.get();
+	m_nodes.push_back(std::move(newNode));
+	return raw;
 }
 
 // ============================================================================
@@ -137,7 +154,6 @@ bool AgentModel::DeleteNode(int id)
 				m_connections.end()
 			);
 
-			delete *it;
 			m_nodes.erase(it);
 			return true;
 		}
@@ -151,13 +167,11 @@ bool AgentModel::DeleteNode(int id)
 
 void AgentModel::ClearAll()
 {
-
-	m_nodes.clear();
+	m_nodes.clear(); // unique_ptr удалит объекты
 	m_connections.clear();
 	m_next_id = 1;
 	InitDefaults();
 }
-
 // ============================================================================
 // Сериализация — JSON экспорт
 // ============================================================================
@@ -252,8 +266,8 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 				}
 
 				// Создать узел через фабрику
-				Node* newNode = NodeFactory::CreateNodeByTypeName(type);
-				if (newNode == nullptr)
+				auto newNode = NodeFactory::CreateNodeByTypeName(type);
+				if (!newNode)
 				{
 					continue; // Неизвестный тип — пропустить
 				}
@@ -272,7 +286,7 @@ bool AgentModel::FromJson(const std::string& jsonStr)
 					}
 				}
 
-				m_nodes.push_back(newNode);
+				m_nodes.push_back(std::move(newNode));
 
 				if (id >= m_next_id)
 				{
@@ -364,27 +378,52 @@ void AgentModel::InitDefaults()
 	float posX = 100.0f;
 	float posY = 300.0f;
 
-	Node* inputNode = NodeFactory::CreateNodeByTypeName("input");
+	auto inputNode = NodeFactory::CreateNodeByTypeName("input");
 	if (inputNode)
 	{
 		inputNode->Identity().id = NextId();
 		inputNode->SetPos(posX, posY);
-		ImNodes::SetNodeScreenSpacePos(inputNode->GetId(), ImVec2(posX, posY));
-		m_nodes.push_back(inputNode);
+		m_nodes.push_back(std::move(inputNode));
 	}
 
 	// Создать Output
 	posX = 600.0f;
 	posY = 300.0f;
 
-	Node* outputNode = NodeFactory::CreateNodeByTypeName("output");
+	auto outputNode = NodeFactory::CreateNodeByTypeName("output");
 	if (outputNode)
 	{
 		outputNode->Identity().id = NextId();
 		outputNode->SetPos(posX, posY);
-		ImNodes::SetNodeScreenSpacePos(outputNode->GetId(), ImVec2(posX, posY));
-		m_nodes.push_back(outputNode);
+		m_nodes.push_back(std::move(outputNode));
 	}
+}
+
+// ============================================================================
+// Удаление связей по ID атрибута (пина)
+// ============================================================================
+
+void AgentModel::RemoveConnectionsForPin(int attrId)
+{
+	bool isInput = (attrId % 1000) < 100;
+	int nodeId = attrId / 1000;
+	int portIndex = isInput ? (attrId % 1000) : (attrId % 1000) - 100;
+
+	m_connections.erase(
+		std::remove_if(m_connections.begin(), m_connections.end(),
+			[nodeId, portIndex, isInput](const Connection& conn)
+			{
+				if (isInput)
+				{
+					return conn.to_node_id == nodeId && conn.to_port_index == portIndex;
+				}
+				else
+				{
+					return conn.from_node_id == nodeId && conn.from_port_index == portIndex;
+				}
+			}),
+		m_connections.end()
+	);
 }
 
 // ============================================================================
